@@ -1,6 +1,6 @@
 /**
  * =============================================================================
- * GOOGLE ADS UNIVERSAL PRODUCT TYPE OPTIMIZER - AI POWERED v2.0
+ * Google Ads Product Type Optimizer - Version 2.0
  * =============================================================================
  * 
  * This script optimizes product types for ANY PRODUCT CATEGORY with AI-powered categorization
@@ -23,8 +23,11 @@
  * SETUP:
  * 1. Go to Google Ads > Tools & Settings > Bulk Actions > Scripts
  * 2. Create new script and paste this code
- * 3. Update configuration below (especially PRODUCT_CATEGORY)
- * 4. Run testSetup() first, then main()
+ * 3. Add your OpenAI API key in the OPENAI_API_KEY configuration variable
+ * 4. Update configuration below (especially PRODUCT_CATEGORY)
+ * 5. Run testSetup() first, then main()
+ * 
+ * Copyright © Andrey Kisselev
  */
 
 // =============================================================================

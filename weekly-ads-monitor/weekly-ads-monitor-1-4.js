@@ -13,6 +13,18 @@
  * - Professional formatting with conditional coloring
  * - Dynamic formulas for real-time filtering
  * 
+ * Installation Steps:
+ * 1. Go to https://ads.google.com and sign into your Google Ads account
+ * 2. Navigate to "Tools & Settings" > "Bulk Actions" > "Scripts"
+ * 3. Click the "+" button to create a new script
+ * 4. Copy and paste this entire script code
+ * 5. Update the SHEET_URL variable (line 22) with your Google Sheet URL (optional - leave empty to auto-create)
+ * 6. Update the BRAND_CAMPAIGNS array (line 28) with your brand campaign names
+ * 7. Save the script with a descriptive name like "Weekly Ads Monitor v1.4"
+ * 8. Click "Preview" to test the script
+ * 9. Click "Run" to execute the script manually
+ * 10. Create a schedule to run the script weekly early on Monday mornings
+ * 
  * Author: Andrey Kisselev
  * Version: 1.4
  * ====================================

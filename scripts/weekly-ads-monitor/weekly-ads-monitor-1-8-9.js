@@ -1,6 +1,6 @@
 /**
  * ====================================
- * WEEKLY ADS MONITOR v1.8.8
+ * WEEKLY ADS MONITOR v1.8.9
  * ====================================
  * 
  * A Google Ads script that generates weekly performance trends
@@ -28,13 +28,13 @@
  * 4. Copy and paste this entire script code
  * 5. Update the SHEET_URL variable with your Google Sheet URL (optional - leave empty to auto-create)
  * 6. Add your brand campaign names to the BRAND_CAMPAIGNS array
- * 7. Save the script with a descriptive name like "Weekly Ads Monitor v1.8.8"
+ * 7. Save the script with a descriptive name like "Weekly Ads Monitor v1.8.9"
  * 8. Click "Preview" to test the script
  * 9. Click "Run" to execute the script manually
  * 10. Create a schedule to run the script weekly early on Monday mornings
  * 
  * Author: Andrey Kisselev
- * Version: 1.8.8 - Added debug logging with toggle control and locale-aware formula generation
+ * Version: 1.8.9 - Added locale-aware formula generation to fix #ERROR! in non-US locales
  * ====================================
  */
 
@@ -70,7 +70,8 @@ const DEBUG_LOGGING_ENABLED = true;
 // v1.8.5: Fixed Cost per Conversion 2024 data
 // v1.8.6: Removed ROAS and Conv. Value by conversion time metrics
 // v1.8.7: Enhanced user experience and performance optimizations
-// v1.8.8: Added debug logging with toggle control and locale-aware formula generation
+// v1.8.8: Added debug logging with toggle control
+// v1.8.9: Added locale-aware formula generation to fix #ERROR! in non-US locales
 
 // *** DEBUG LOGGING FUNCTIONS ***
 function debugLog(message, data = null) {
@@ -993,7 +994,7 @@ function generateWeeklyAdsReport() {
   debugStart('generateWeeklyAdsReport');
   
   try {
-    Logger.log('Thanks for using Weekly Ad Monitor script by Andrey Kisselev (c) 2025. Version: 1.8.8.');
+    Logger.log('Thanks for using Weekly Ad Monitor script by Andrey Kisselev (c) 2025. Version: 1.8.9.');
     
     debugLog('Brand campaigns configuration', { brandCampaigns: BRAND_CAMPAIGNS, count: BRAND_CAMPAIGNS.length });
     
@@ -1009,7 +1010,7 @@ function generateWeeklyAdsReport() {
     
     if (SHEET_URL === '') {
       // Create a new spreadsheet if no URL is provided
-      const sheetName = 'Weekly Ads Monitor v1.8.8 - ' + 
+      const sheetName = 'Weekly Ads Monitor v1.8.9 - ' + 
         Utilities.formatDate(new Date(), AdsApp.currentAccount().getTimeZone(), 'yyyy-MM-dd');
       debugLog('Creating new spreadsheet', { sheetName });
       
@@ -1115,7 +1116,7 @@ function generateWeeklyAdsReport() {
     debugLog('Creating weekly summary dashboard');
     createWeeklySummary(spreadsheet, rawData);
     
-    Logger.log('🎉 SUCCESS! Weekly Ads Monitor v1.8.8 completed');
+    Logger.log('🎉 SUCCESS! Weekly Ads Monitor v1.8.9 completed');
     Logger.log(`✅ Generated ${rawData.length} weekly campaign records with calendar-based YoY comparison and WoW for all metrics (with reordered WoW columns)`);
     Logger.log(`💰 Currency formatting applied: ${LOCALE_SETTINGS.currencyCode} (${LOCALE_SETTINGS.currencySymbol})`);
     Logger.log('🔗 Weekly Ads Monitor URL: ' + spreadsheet.getUrl());

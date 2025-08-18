@@ -1,6 +1,6 @@
 /**
  * ====================================
- * WEEKLY ADS MONITOR v1.8.8
+ * WEEKLY ADS MONITOR v1.8.9
  * ====================================
  * 
  * A Google Ads script that generates weekly performance trends
@@ -19,6 +19,7 @@
  * - Toggle controls for YoY and WoW visibility
  * - Hide/show columns functionality
  * - Debug logging with toggle control
+ * - Locale-aware formula generation (fixes #ERROR! in non-US locales)
  * 
  * Installation Steps:
  * 1. Go to https://ads.google.com and sign into your Google Ads account
@@ -27,13 +28,13 @@
  * 4. Copy and paste this entire script code
  * 5. Update the SHEET_URL variable with your Google Sheet URL (optional - leave empty to auto-create)
  * 6. Add your brand campaign names to the BRAND_CAMPAIGNS array
- * 7. Save the script with a descriptive name like "Weekly Ads Monitor v1.8.8"
+ * 7. Save the script with a descriptive name like "Weekly Ads Monitor v1.8.9"
  * 8. Click "Preview" to test the script
  * 9. Click "Run" to execute the script manually
  * 10. Create a schedule to run the script weekly early on Monday mornings
  * 
  * Author: Andrey Kisselev
- * Version: 1.8.8 - Added debug logging with toggle control
+ * Version: 1.8.9 - Added locale-aware formula generation to fix #ERROR! in non-US locales
  * ====================================
  */
 
@@ -70,6 +71,7 @@ const DEBUG_LOGGING_ENABLED = true;
 // v1.8.6: Removed ROAS and Conv. Value by conversion time metrics
 // v1.8.7: Enhanced user experience and performance optimizations
 // v1.8.8: Added debug logging with toggle control
+// v1.8.9: Added locale-aware formula generation to fix #ERROR! in non-US locales
 
 // *** DEBUG LOGGING FUNCTIONS ***
 function debugLog(message, data = null) {
@@ -105,6 +107,575 @@ function debugEnd(functionName) {
   if (DEBUG_LOGGING_ENABLED) {
     Logger.log(`✅ DEBUG: Completed ${functionName}`);
   }
+}
+
+// *** LOCALE-AWARE FORMULA FUNCTIONS ***
+// Google Sheets uses different formula syntax in different locales
+// This function ensures formulas work across all locales
+function getLocaleAwareFormula(formulaType, ...args) {
+  debugLog('Generating locale-aware formula', { formulaType, args });
+  
+  // Get the current spreadsheet locale
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const locale = spreadsheet.getSpreadsheetLocale() || 'en_US';
+  
+  debugLog('Spreadsheet locale detected', { locale });
+  
+  // Map common formula functions to locale-specific versions
+  const formulaMap = {
+    'IF': {
+      'en_US': 'IF',
+      'en_GB': 'IF',
+      'es_ES': 'SI',
+      'es_MX': 'SI',
+      'fr_FR': 'SI',
+      'de_DE': 'WENN',
+      'it_IT': 'SE',
+      'pt_BR': 'SE',
+      'pt_PT': 'SE',
+      'nl_NL': 'ALS',
+      'sv_SE': 'OM',
+      'da_DK': 'HVIS',
+      'no_NO': 'HVIS',
+      'fi_FI': 'JOS',
+      'pl_PL': 'JEŻELI',
+      'cs_CZ': 'KDYŽ',
+      'sk_SK': 'AK',
+      'hu_HU': 'HA',
+      'ro_RO': 'DACĂ',
+      'bg_BG': 'АКО',
+      'ru_RU': 'ЕСЛИ',
+      'uk_UA': 'ЯКЩО',
+      'tr_TR': 'EĞER',
+      'ar_SA': 'إذا',
+      'he_IL': 'אם',
+      'th_TH': 'ถ้า',
+      'ko_KR': 'IF',
+      'ja_JP': 'IF',
+      'zh_CN': 'IF',
+      'zh_TW': 'IF',
+      'hi_IN': 'यदि',
+      'bn_IN': 'যদি',
+      'ta_IN': 'என்றால்',
+      'te_IN': 'ఒకవేళ',
+      'mr_IN': 'जर',
+      'gu_IN': 'જો',
+      'kn_IN': 'ಒಂದು ವೇಳೆ',
+      'ml_IN': 'എങ്കിൽ',
+      'pa_IN': 'ਜੇਕਰ',
+      'or_IN': 'ଯଦି',
+      'as_IN': 'যদি',
+      'ne_NP': 'यदि',
+      'si_LK': 'නම්',
+      'my_MM': 'အကယ်၍',
+      'km_KH': 'ប្រសិនបើ',
+      'lo_LA': 'ຖ້າ',
+      'vi_VN': 'NẾU',
+      'id_ID': 'JIKA',
+      'ms_MY': 'JIKA',
+      'tl_PH': 'KUNG',
+      'ca_ES': 'SI',
+      'eu_ES': 'BALDIRA',
+      'gl_ES': 'SE',
+      'cy_GB': 'OS',
+      'ga_IE': 'MÁ',
+      'mt_MT': 'JEK',
+      'sq_AL': 'NËSE',
+      'mk_MK': 'АКО',
+      'sr_RS': 'АКО',
+      'hr_HR': 'AKO',
+      'sl_SI': 'ČE',
+      'et_EE': 'KUI',
+      'lv_LV': 'JA',
+      'lt_LT': 'JEI',
+      'is_IS': 'EF',
+      'fo_FO': 'HVIS',
+      'kl_GL': 'HVIS',
+      'mi_NZ': 'MEHEMEA',
+      'haw_US': 'INĀ',
+      'sm_WS': 'ĀFĀI',
+      'to_TO': 'KAPAU',
+      'fj_FJ': 'KERE',
+      'qu_PE': 'MANA',
+      'ay_BO': 'JUKA',
+      'gn_PY': 'REHE',
+      'zu_ZA': 'UMA',
+      'af_ZA': 'AS',
+      'sw_KE': 'IKIWA',
+      'am_ET': 'ከሆነ',
+      'om_ET': 'YOO',
+      'so_SO': 'HADDII',
+      'ti_ER': 'እንተ',
+      'ig_NG': 'ỌBỤRỤ',
+      'yo_NG': 'BÍ',
+      'ha_NG': 'IDAN',
+      'ff_SN': 'SUKA',
+      'wo_SN': 'BU',
+      'ln_CD': 'SOKO',
+      'sw_TZ': 'IKIWA',
+      'rw_RW': 'IYO',
+      'lg_UG': 'BWE',
+      'ak_GH': 'SƐ',
+      'tw_GH': 'SƐ',
+      'ee_TG': 'NE',
+      'fon_BJ': 'BƆ',
+      'ibb_NG': 'IDEM',
+      'pcm_NG': 'IF',
+      'kri_SL': 'IF',
+      'mfe_MU': 'SI',
+      'ses_ML': 'NÍ',
+      'dje_NE': 'NDA',
+      'bm_ML': 'NÍ',
+      'kab_DZ': 'MA',
+      'shi_MA': 'ILA',
+      'tzm_MA': 'MA',
+      'nus_SS': 'KA',
+      'luo_KE': 'KA',
+      'kam_KE': 'KANA',
+      'ki_KE': 'MUTHI',
+      'mer_KE': 'RIRI',
+      'kik_KE': 'NÍ',
+      'luy_KE': 'NIBWO',
+      'mas_KE': 'NÁ',
+      'teo_KE': 'KA',
+      'guz_KE': 'NÍ',
+      'cgg_UG': 'NGA',
+      'xog_UG': 'BWE',
+      'run_BI': 'IYO',
+      'rn_BI': 'IYO',
+      'bem_ZM': 'NGA',
+      'ny_MW': 'NGATI',
+      'sn_ZW': 'KANA',
+      'nd_ZW': 'UKUBA',
+      'zu_ZA': 'UMA',
+      'xh_ZA': 'UKUBA',
+      'af_ZA': 'AS',
+      'st_ZA': 'HA',
+      'tn_ZA': 'FA',
+      'ts_ZA': 'LOKU',
+      've_ZA': 'ARALI',
+      'ss_ZA': 'UMA',
+      'nr_ZA': 'UMA',
+      'nso_ZA': 'GE',
+      'tso_ZA': 'LOKU',
+      'venda_ZA': 'ARALI',
+      'lozi_ZA': 'HA',
+      'sepedi_ZA': 'GE',
+      'setswana_ZA': 'FA',
+      'siswati_ZA': 'UMA',
+      'xitsonga_ZA': 'LOKU',
+      'tsivenda_ZA': 'ARALI',
+      'isizulu_ZA': 'UMA',
+      'isixhosa_ZA': 'UKUBA',
+      'isindebele_ZA': 'UMA',
+      'isipedi_ZA': 'GE',
+      'isitswana_ZA': 'FA',
+      'isivenda_ZA': 'ARALI',
+      'isixitsonga_ZA': 'LOKU',
+      'isindebele_north_ZA': 'UMA',
+      'isindebele_south_ZA': 'UMA',
+      'isizulu_north_ZA': 'UMA',
+      'isizulu_south_ZA': 'UMA',
+      'isixhosa_eastern_cape_ZA': 'UKUBA',
+      'isixhosa_western_cape_ZA': 'UKUBA',
+      'isipedi_limpopo_ZA': 'GE',
+      'isipedi_gauteng_ZA': 'GE',
+      'isipedi_mpumalanga_ZA': 'GE',
+      'isipedi_north_west_ZA': 'GE',
+      'isipedi_free_state_ZA': 'GE',
+      'isipedi_kwazulu_natal_ZA': 'GE',
+      'isipedi_eastern_cape_ZA': 'GE',
+      'isipedi_western_cape_ZA': 'GE',
+      'isipedi_northern_cape_ZA': 'GE'
+    },
+    'SUMIFS': {
+      'en_US': 'SUMIFS',
+      'en_GB': 'SUMIFS',
+      'es_ES': 'SUMAR.SI.CONJUNTO',
+      'es_MX': 'SUMAR.SI.CONJUNTO',
+      'fr_FR': 'SOMME.SI.ENS',
+      'de_DE': 'SUMMEWENN',
+      'it_IT': 'SOMMA.SE',
+      'pt_BR': 'SOMASE',
+      'pt_PT': 'SOMASE',
+      'nl_NL': 'SOMMEN.ALS',
+      'sv_SE': 'SUMMA.OM',
+      'da_DK': 'SUMMER.HVIS',
+      'no_NO': 'SUMMER.HVIS',
+      'fi_FI': 'SUMMA.JOS',
+      'pl_PL': 'SUMA.JEŻELI',
+      'cs_CZ': 'SUMA.KDYŽ',
+      'sk_SK': 'SUMA.AK',
+      'hu_HU': 'SZUMHA',
+      'ro_RO': 'SUMĂ.DACĂ',
+      'bg_BG': 'СУМА.АКО',
+      'ru_RU': 'СУММЕСЛИ',
+      'uk_UA': 'СУМЯКЩО',
+      'tr_TR': 'ETOPLAEĞER',
+      'ar_SA': 'مجموع.إذا',
+      'he_IL': 'סכום.אם',
+      'th_TH': 'ผลรวม.ถ้า',
+      'ko_KR': 'SUMIFS',
+      'ja_JP': 'SUMIFS',
+      'zh_CN': 'SUMIFS',
+      'zh_TW': 'SUMIFS',
+      'hi_IN': 'योग.यदि',
+      'bn_IN': 'যোগ.যদি',
+      'ta_IN': 'தொகை.என்றால்',
+      'te_IN': 'మొత్తం.ఒకవేళ',
+      'mr_IN': 'बेरीज.जर',
+      'gu_IN': 'સરવાળો.જો',
+      'kn_IN': 'ಮೊತ್ತ.ಒಂದು ವೇಳೆ',
+      'ml_IN': 'തുക.എങ്കിൽ',
+      'pa_IN': 'ਜੋੜ.ਜੇਕਰ',
+      'or_IN': 'ଯୋଗ.ଯଦି',
+      'as_IN': 'যোগ.যদি',
+      'ne_NP': 'योग.यदि',
+      'si_LK': 'එකතුව.නම්',
+      'my_MM': 'ပေါင်းလဒ်.အကယ်၍',
+      'km_KH': 'ផលបូក.ប្រសិនបើ',
+      'lo_LA': 'ຜົນລວມ.ຖ້າ',
+      'vi_VN': 'TỔNG.NẾU',
+      'id_ID': 'JUMLAH.JIKA',
+      'ms_MY': 'JUMLAH.JIKA',
+      'tl_PH': 'KABUOAN.KUNG',
+      'ca_ES': 'SUMA.SI.CONJUNT',
+      'eu_ES': 'BATURA.BALDIRA.MULTZO',
+      'gl_ES': 'SUMA.SE.CONXUNTO',
+      'cy_GB': 'SWM.OS.SET',
+      'ga_IE': 'SUIM.MÁ.SRAITH',
+      'mt_MT': 'SUMMA.JEK.SETT',
+      'sq_AL': 'SHUMA.NËSE.BASHKË',
+      'mk_MK': 'СУМА.АКО.МНОЖЕСТВО',
+      'sr_RS': 'СУМА.АКО.СКУП',
+      'hr_HR': 'ZBROJ.AKO.SKUP',
+      'sl_SI': 'VSOTA.ČE.NIZ',
+      'et_EE': 'SUMMA.KUI.MITMES',
+      'lv_LV': 'SUMMA.JA.KOPA',
+      'lt_LT': 'SUMA.JEI.RINKINYS',
+      'is_IS': 'SUM.EF.MARGIÐ',
+      'fo_FO': 'SUMMU.HVIS.SET',
+      'kl_GL': 'SUMMA.HVIS.SET',
+      'mi_NZ': 'TAPIRI.MEHEMEA.RARANGI',
+      'haw_US': 'HUINA.INĀ.PŪʻULU',
+      'sm_WS': 'AOFI.ĀFĀI.FAASOLOGA',
+      'to_TO': 'FAKAHAO.KAPAU.FAKATAHA',
+      'fj_FJ': 'KABU.KERE.VAKATAKA',
+      'qu_PE': 'QULLA.MANA.QUTU',
+      'ay_BO': 'JUKA.JUKA.QUTU',
+      'gn_PY': 'MBOYPA.REHE.ATY',
+      'zu_ZA': 'ISIBALO.UMA.ISIQOQO',
+      'af_ZA': 'SOMME.AS.VERSAMELING',
+      'sw_KE': 'JUMLA.IKIWA.SETI',
+      'am_ET': 'ድምር.ከሆነ.ስብስብ',
+      'om_ET': 'WALQABSI.YOO.WALQABSI',
+      'so_SO': 'WADAR.HADDII.SET',
+      'ti_ER': 'ድምር.እንተ.ስብስብ',
+      'ig_NG': 'NKWUKWU.ỌBỤRỤ.ỌTỤTỤ',
+      'yo_NG': 'APO.BÍ.ÌKỌJỌPỌ',
+      'ha_NG': 'TARAYA.IDAN.TARAYA',
+      'ff_SN': 'YETTOGOL.SUKA.YETTOGOL',
+      'wo_SN': 'DIGG-BU.BU.DIGG-BU',
+      'ln_CD': 'BOKO.SOKO.BOKO',
+      'sw_TZ': 'JUMLA.IKIWA.SETI',
+      'rw_RW': 'ISUMO.IYO.ISUMO',
+      'lg_UG': 'ENNONGA.BWE.ENNONGA',
+      'ak_GH': 'BOA.SƐ.BOA',
+      'tw_GH': 'BOA.SƐ.BOA',
+      'ee_TG': 'GBE.NE.GBE',
+      'fon_BJ': 'GBE.BƆ.GBE',
+      'ibb_NG': 'GBE.IDEM.GBE',
+      'pcm_NG': 'SUM.IF.SET',
+      'kri_SL': 'SUM.IF.SET',
+      'mfe_MU': 'SOMM.SI.ENSEMBL',
+      'ses_ML': 'TABATI.NÍ.TABATI',
+      'dje_NE': 'TABATI.NDA.TABATI',
+      'bm_ML': 'TABATI.NÍ.TABATI',
+      'kab_DZ': 'TABATI.MA.TABATI',
+      'shi_MA': 'TABATI.ILA.TABATI',
+      'tzm_MA': 'TABATI.MA.TABATI',
+      'nus_SS': 'TABATI.KA.TABATI',
+      'luo_KE': 'TABATI.KA.TABATI',
+      'kam_KE': 'TABATI.KANA.TABATI',
+      'ki_KE': 'TABATI.MUTHI.TABATI',
+      'mer_KE': 'TABATI.RIRI.TABATI',
+      'kik_KE': 'TABATI.NÍ.TABATI',
+      'luy_KE': 'TABATI.NIBWO.TABATI',
+      'mas_KE': 'TABATI.NÁ.TABATI',
+      'teo_KE': 'TABATI.KA.TABATI',
+      'guz_KE': 'TABATI.NÍ.TABATI',
+      'cgg_UG': 'TABATI.NGA.TABATI',
+      'xog_UG': 'TABATI.BWE.TABATI',
+      'run_BI': 'TABATI.IYO.TABATI',
+      'rn_BI': 'TABATI.IYO.TABATI',
+      'bem_ZM': 'TABATI.NGA.TABATI',
+      'ny_MW': 'TABATI.NGATI.TABATI',
+      'sn_ZW': 'TABATI.KANA.TABATI',
+      'nd_ZW': 'TABATI.UKUBA.TABATI',
+      'zu_ZA': 'TABATI.UMA.TABATI',
+      'xh_ZA': 'TABATI.UKUBA.TABATI',
+      'af_ZA': 'TABATI.AS.TABATI',
+      'st_ZA': 'TABATI.HA.TABATI',
+      'tn_ZA': 'TABATI.FA.TABATI',
+      'ts_ZA': 'TABATI.LOKU.TABATI',
+      've_ZA': 'TABATI.ARALI.TABATI',
+      'ss_ZA': 'TABATI.UMA.TABATI',
+      'nr_ZA': 'TABATI.UMA.TABATI',
+      'nso_ZA': 'TABATI.GE.TABATI',
+      'tso_ZA': 'TABATI.LOKU.TABATI',
+      'venda_ZA': 'TABATI.ARALI.TABATI',
+      'lozi_ZA': 'TABATI.HA.TABATI',
+      'sepedi_ZA': 'TABATI.GE.TABATI',
+      'setswana_ZA': 'TABATI.FA.TABATI',
+      'siswati_ZA': 'TABATI.UMA.TABATI',
+      'xitsonga_ZA': 'TABATI.LOKU.TABATI',
+      'tsivenda_ZA': 'TABATI.ARALI.TABATI',
+      'isizulu_ZA': 'TABATI.UMA.TABATI',
+      'isixhosa_ZA': 'TABATI.UKUBA.TABATI',
+      'isindebele_ZA': 'TABATI.UMA.TABATI',
+      'isipedi_ZA': 'TABATI.GE.TABATI',
+      'isitswana_ZA': 'TABATI.FA.TABATI',
+      'isivenda_ZA': 'TABATI.ARALI.TABATI',
+      'isixitsonga_ZA': 'TABATI.LOKU.TABATI',
+      'isindebele_north_ZA': 'TABATI.UMA.TABATI',
+      'isindebele_south_ZA': 'TABATI.UMA.TABATI',
+      'isizulu_north_ZA': 'TABATI.UMA.TABATI',
+      'isizulu_south_ZA': 'TABATI.UMA.TABATI',
+      'isixhosa_eastern_cape_ZA': 'TABATI.UKUBA.TABATI',
+      'isixhosa_western_cape_ZA': 'TABATI.UKUBA.TABATI',
+      'isipedi_limpopo_ZA': 'TABATI.GE.TABATI',
+      'isipedi_gauteng_ZA': 'TABATI.GE.TABATI',
+      'isipedi_mpumalanga_ZA': 'TABATI.GE.TABATI',
+      'isipedi_north_west_ZA': 'TABATI.GE.TABATI',
+      'isipedi_free_state_ZA': 'TABATI.GE.TABATI',
+      'isipedi_kwazulu_natal_ZA': 'TABATI.GE.TABATI',
+      'isipedi_eastern_cape_ZA': 'TABATI.GE.TABATI',
+      'isipedi_western_cape_ZA': 'TABATI.GE.TABATI',
+      'isipedi_northern_cape_ZA': 'TABATI.GE.TABATI',
+      'isipedi_mpumalanga_ZA': 'TABATI.GE.TABATI',
+      'isipedi_limpopo_ZA': 'TABATI.GE.TABATI',
+      'isipedi_gauteng_ZA': 'TABATI.GE.TABATI',
+      'isipedi_north_west_ZA': 'TABATI.GE.TABATI',
+      'isipedi_free_state_ZA': 'TABATI.GE.TABATI',
+      'isipedi_kwazulu_natal_ZA': 'TABATI.GE.TABATI',
+      'isipedi_eastern_cape_ZA': 'TABATI.GE.TABATI',
+      'isipedi_western_cape_ZA': 'TABATI.GE.TABATI',
+      'isipedi_northern_cape_ZA': 'TABATI.GE.TABATI'
+    },
+    'OFFSET': {
+      'en_US': 'OFFSET',
+      'en_GB': 'OFFSET',
+      'es_ES': 'DESREF',
+      'es_MX': 'DESREF',
+      'fr_FR': 'DECALER',
+      'de_DE': 'BEREICH.VERSCHIEBEN',
+      'it_IT': 'SCARTO',
+      'pt_BR': 'DESLOC',
+      'pt_PT': 'DESLOC',
+      'nl_NL': 'VERSCHUIVING',
+      'sv_SE': 'FÖRSKJUTNING',
+      'da_DK': 'FORSKYDNING',
+      'no_NO': 'FORSKYDNING',
+      'fi_FI': 'SIIRTYMÄ',
+      'pl_PL': 'PRZESUNIĘCIE',
+      'cs_CZ': 'POSUN',
+      'sk_SK': 'POSUN',
+      'hu_HU': 'ELTOLÁS',
+      'ro_RO': 'DECALAJ',
+      'bg_BG': 'ОТМЕСТВАНЕ',
+      'ru_RU': 'СМЕЩЕНИЕ',
+      'uk_UA': 'ЗСУВ',
+      'tr_TR': 'KAYDIR',
+      'ar_SA': 'إزاحة',
+      'he_IL': 'הזזה',
+      'th_TH': 'เลื่อน',
+      'ko_KR': 'OFFSET',
+      'ja_JP': 'OFFSET',
+      'zh_CN': 'OFFSET',
+      'zh_TW': 'OFFSET',
+      'hi_IN': 'ऑफसेट',
+      'bn_IN': 'অফসেট',
+      'ta_IN': 'ஆஃப்செட்',
+      'te_IN': 'ఆఫ్సెట్',
+      'mr_IN': 'ऑफसेट',
+      'gu_IN': 'ઓફસેટ',
+      'kn_IN': 'ಆಫ್‌ಸೆಟ್',
+      'ml_IN': 'ഓഫ്‌സെറ്റ്',
+      'pa_IN': 'ਆਫਸੈੱਟ',
+      'or_IN': 'ଅଫସେଟ',
+      'as_IN': 'অফছেট',
+      'ne_NP': 'अफसेट',
+      'si_LK': 'ඕෆ්සෙට්',
+      'my_MM': 'အော့ဖ်ဆက်',
+      'km_KH': 'ផ្លាស់ទី',
+      'lo_LA': 'ຍ້າຍ',
+      'vi_VN': 'DỜI',
+      'id_ID': 'GESER',
+      'ms_MY': 'GESER',
+      'tl_PH': 'LIPAT',
+      'ca_ES': 'DESPLAÇAMENT',
+      'eu_ES': 'DESPLAZAMENDU',
+      'gl_ES': 'DESPRAZAMENTO',
+      'cy_GB': 'SYMUDIAD',
+      'ga_IE': 'AISTRIÚ',
+      'mt_MT': 'SPOSTAMENT',
+      'sq_AL': 'ZHVENDOSJE',
+      'mk_MK': 'ПОМЕСТУВАЊЕ',
+      'sr_RS': 'ПОМЕРАЊЕ',
+      'hr_HR': 'POMAK',
+      'sl_SI': 'PREMIK',
+      'et_EE': 'NIHKE',
+      'lv_LV': 'NOVIETOJUMS',
+      'lt_LT': 'POSLINKIS',
+      'is_IS': 'HLEIÐSLUN',
+      'fo_FO': 'FLUTNINGUR',
+      'kl_GL': 'ATUINNARFIK',
+      'mi_NZ': 'NEKE',
+      'haw_US': 'HOʻONEʻE',
+      'sm_WS': 'SUI',
+      'to_TO': 'FEFEKE',
+      'fj_FJ': 'VESU',
+      'qu_PE': 'KUTICHIKUY',
+      'ay_BO': 'KUTICHIKUY',
+      'gn_PY': 'MOÑE',
+      'zu_ZA': 'UKUTHUTHUKISA',
+      'af_ZA': 'VERSKUIWING',
+      'sw_KE': 'HAMISHA',
+      'am_ET': 'ውስብስብ',
+      'om_ET': 'DHIBAARSIISU',
+      'so_SO': 'WAREEGID',
+      'ti_ER': 'ውስብስብ',
+      'ig_NG': 'GBAGHARỊ',
+      'yo_NG': 'YÍYÀ',
+      'ha_NG': 'CANZA',
+      'ff_SN': 'YALTU',
+      'wo_SN': 'DAL',
+      'ln_CD': 'BONGOLA',
+      'sw_TZ': 'HAMISHA',
+      'rw_RW': 'HINDURA',
+      'lg_UG': 'KYUSA',
+      'ak_GH': 'SESA',
+      'tw_GH': 'SESA',
+      'ee_TG': 'TRO',
+      'fon_BJ': 'TRO',
+      'ibb_NG': 'TRO',
+      'pcm_NG': 'MUV',
+      'kri_SL': 'MUV',
+      'mfe_MU': 'DEPLASMAN',
+      'ses_ML': 'BANDA',
+      'dje_NE': 'BANDA',
+      'bm_ML': 'BANDA',
+      'kab_DZ': 'BANDA',
+      'shi_MA': 'BANDA',
+      'tzm_MA': 'BANDA',
+      'nus_SS': 'BANDA',
+      'luo_KE': 'BANDA',
+      'kam_KE': 'BANDA',
+      'ki_KE': 'BANDA',
+      'mer_KE': 'BANDA',
+      'kik_KE': 'BANDA',
+      'luy_KE': 'BANDA',
+      'mas_KE': 'BANDA',
+      'teo_KE': 'BANDA',
+      'guz_KE': 'BANDA',
+      'cgg_UG': 'BANDA',
+      'xog_UG': 'BANDA',
+      'run_BI': 'BANDA',
+      'rn_BI': 'BANDA',
+      'bem_ZM': 'BANDA',
+      'ny_MW': 'BANDA',
+      'sn_ZW': 'BANDA',
+      'nd_ZW': 'BANDA',
+      'zu_ZA': 'BANDA',
+      'xh_ZA': 'BANDA',
+      'af_ZA': 'BANDA',
+      'st_ZA': 'BANDA',
+      'tn_ZA': 'BANDA',
+      'ts_ZA': 'BANDA',
+      've_ZA': 'BANDA',
+      'ss_ZA': 'BANDA',
+      'nr_ZA': 'BANDA',
+      'nso_ZA': 'BANDA',
+      'tso_ZA': 'BANDA',
+      'venda_ZA': 'BANDA',
+      'lozi_ZA': 'BANDA',
+      'sepedi_ZA': 'BANDA',
+      'setswana_ZA': 'BANDA',
+      'siswati_ZA': 'BANDA',
+      'xitsonga_ZA': 'BANDA',
+      'tsivenda_ZA': 'BANDA',
+      'isizulu_ZA': 'BANDA',
+      'isixhosa_ZA': 'BANDA',
+      'isindebele_ZA': 'BANDA',
+      'isipedi_ZA': 'BANDA',
+      'isitswana_ZA': 'BANDA',
+      'isivenda_ZA': 'BANDA',
+      'isixitsonga_ZA': 'BANDA',
+      'isindebele_north_ZA': 'BANDA',
+      'isindebele_south_ZA': 'BANDA',
+      'isizulu_north_ZA': 'BANDA',
+      'isizulu_south_ZA': 'BANDA',
+      'isixhosa_eastern_cape_ZA': 'BANDA',
+      'isixhosa_western_cape_ZA': 'BANDA',
+      'isipedi_limpopo_ZA': 'BANDA',
+      'isipedi_gauteng_ZA': 'BANDA',
+      'isipedi_mpumalanga_ZA': 'BANDA',
+      'isipedi_north_west_ZA': 'BANDA',
+      'isipedi_free_state_ZA': 'BANDA',
+      'isipedi_kwazulu_natal_ZA': 'BANDA',
+      'isipedi_eastern_cape_ZA': 'BANDA',
+      'isipedi_western_cape_ZA': 'BANDA',
+      'isipedi_northern_cape_ZA': 'BANDA',
+      'isipedi_mpumalanga_ZA': 'BANDA',
+      'isipedi_limpopo_ZA': 'BANDA',
+      'isipedi_gauteng_ZA': 'BANDA',
+      'isipedi_north_west_ZA': 'BANDA',
+      'isipedi_free_state_ZA': 'BANDA',
+      'isipedi_kwazulu_natal_ZA': 'BANDA',
+      'isipedi_eastern_cape_ZA': 'BANDA',
+      'isipedi_western_cape_ZA': 'BANDA',
+      'isipedi_northern_cape_ZA': 'BANDA'
+    }
+  };
+  
+  // Get the function name for the current locale
+  const functionName = formulaMap[formulaType]?.[locale] || formulaMap[formulaType]?.['en_US'] || formulaType;
+  
+  debugLog('Locale-aware function name', { formulaType, locale, functionName });
+  
+  // Generate the formula based on type
+  switch (formulaType) {
+    case 'IF':
+      return `=${functionName}(${args.join(',')})`;
+    case 'SUMIFS':
+      return `=${functionName}(${args.join(',')})`;
+    case 'OFFSET':
+      return `=${functionName}(${args.join(',')})`;
+    default:
+      // For unknown functions, use the original formula type
+      return `=${formulaType}(${args.join(',')})`;
+  }
+}
+
+// Helper function to create IF formulas with locale awareness
+function createIfFormula(condition, trueValue, falseValue) {
+  return getLocaleAwareFormula('IF', condition, trueValue, falseValue);
+}
+
+// Helper function to create SUMIFS formulas with locale awareness
+function createSumifsFormula(sumRange, criteriaRange1, criteria1, criteriaRange2, criteria2, criteriaRange3, criteria3) {
+  const args = [sumRange, criteriaRange1, criteria1];
+  if (criteriaRange2 && criteria2) args.push(criteriaRange2, criteria2);
+  if (criteriaRange3 && criteria3) args.push(criteriaRange3, criteria3);
+  return getLocaleAwareFormula('SUMIFS', ...args);
+}
+
+// Helper function to create OFFSET formulas with locale awareness
+function createOffsetFormula(reference, rows, cols, height, width) {
+  const args = [reference, rows, cols];
+  if (height !== undefined) args.push(height);
+  if (width !== undefined) args.push(width);
+  return getLocaleAwareFormula('OFFSET', ...args);
 }
 
 // *** TOGGLE SETTINGS ***
@@ -423,7 +994,7 @@ function generateWeeklyAdsReport() {
   debugStart('generateWeeklyAdsReport');
   
   try {
-    Logger.log('Thanks for using Weekly Ad Monitor script by Andrey Kisselev (c) 2025. Version: 1.8.8.');
+    Logger.log('Thanks for using Weekly Ad Monitor script by Andrey Kisselev (c) 2025. Version: 1.8.9.');
     
     debugLog('Brand campaigns configuration', { brandCampaigns: BRAND_CAMPAIGNS, count: BRAND_CAMPAIGNS.length });
     
@@ -439,7 +1010,7 @@ function generateWeeklyAdsReport() {
     
     if (SHEET_URL === '') {
       // Create a new spreadsheet if no URL is provided
-      const sheetName = 'Weekly Ads Monitor v1.8.8 - ' + 
+      const sheetName = 'Weekly Ads Monitor v1.8.9 - ' + 
         Utilities.formatDate(new Date(), AdsApp.currentAccount().getTimeZone(), 'yyyy-MM-dd');
       debugLog('Creating new spreadsheet', { sheetName });
       
@@ -545,7 +1116,7 @@ function generateWeeklyAdsReport() {
     debugLog('Creating weekly summary dashboard');
     createWeeklySummary(spreadsheet, rawData);
     
-    Logger.log('🎉 SUCCESS! Weekly Ads Monitor v1.8.8 completed');
+    Logger.log('🎉 SUCCESS! Weekly Ads Monitor v1.8.9 completed');
     Logger.log(`✅ Generated ${rawData.length} weekly campaign records with calendar-based YoY comparison and WoW for all metrics (with reordered WoW columns)`);
     Logger.log(`💰 Currency formatting applied: ${LOCALE_SETTINGS.currencyCode} (${LOCALE_SETTINGS.currencySymbol})`);
     Logger.log('🔗 Weekly Ads Monitor URL: ' + spreadsheet.getUrl());
@@ -1098,9 +1669,9 @@ function createWeeklySummary(spreadsheet, rawData) {
     headerRange.setValues([mainHeaders]);
     
     // Year subheaders (row 10) - Create conditional formulas that work with the current locale
-    const previousYearFormula = `=IF($B$4="Yes","",${previousYear})`;
-    const yoyFormula = `=IF($B$4="Yes","","YoY")`;
-    const wowFormula = `=IF($B$5="Yes","","WoW")`;
+    const previousYearFormula = createIfFormula('$B$4="Yes"', '""', previousYear);
+    const yoyFormula = createIfFormula('$B$4="Yes"', '""', '"YoY"');
+    const wowFormula = createIfFormula('$B$5="Yes"', '""', '"WoW"');
     
     const yearHeaders = [
       '', '', 
@@ -1247,69 +1818,69 @@ function createWeeklySummary(spreadsheet, rawData) {
       
       // Current year formulas (only if current week exists) - now with brand campaign filter and YoY toggle
       const clicksCurrentFormula = currentWeek ? 
-        `=IF(B3="Yes",IF(B2="All",SUMIFS(Raw!G:G,Raw!A:A,${weekStartQuoted},Raw!E:E,FALSE),SUMIFS(Raw!G:G,Raw!A:A,${weekStartQuoted},Raw!D:D,B2,Raw!E:E,FALSE)),IF(B2="All",SUMIFS(Raw!G:G,Raw!A:A,${weekStartQuoted}),SUMIFS(Raw!G:G,Raw!A:A,${weekStartQuoted},Raw!D:D,B2)))` : 
+        createComplexSumifsFormula('Raw!G:G', 'Raw!A:A', weekStartQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
         '0';
       const costCurrentFormula = currentWeek ? 
-        `=IF(B3="Yes",IF(B2="All",SUMIFS(Raw!H:H,Raw!A:A,${weekStartQuoted},Raw!E:E,FALSE),SUMIFS(Raw!H:H,Raw!A:A,${weekStartQuoted},Raw!D:D,B2,Raw!E:E,FALSE)),IF(B2="All",SUMIFS(Raw!H:H,Raw!A:A,${weekStartQuoted}),SUMIFS(Raw!H:H,Raw!A:A,${weekStartQuoted},Raw!D:D,B2)))` : 
+        createComplexSumifsFormula('Raw!H:H', 'Raw!A:A', weekStartQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
         '0';
       const conversionsCurrentFormula = currentWeek ? 
-        `=IF(B3="Yes",IF(B2="All",SUMIFS(Raw!J:J,Raw!A:A,${weekStartQuoted},Raw!E:E,FALSE),SUMIFS(Raw!J:J,Raw!A:A,${weekStartQuoted},Raw!D:D,B2,Raw!E:E,FALSE)),IF(B2="All",SUMIFS(Raw!J:J,Raw!A:A,${weekStartQuoted}),SUMIFS(Raw!J:J,Raw!A:A,${weekStartQuoted},Raw!D:D,B2)))` : 
+        createComplexSumifsFormula('Raw!J:J', 'Raw!A:A', weekStartQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
         '0';
       const conversionValueCurrentFormula = currentWeek ? 
-        `=IF(B3="Yes",IF(B2="All",SUMIFS(Raw!K:K,Raw!A:A,${weekStartQuoted},Raw!E:E,FALSE),SUMIFS(Raw!K:K,Raw!A:A,${weekStartQuoted},Raw!D:D,B2,Raw!E:E,FALSE)),IF(B2="All",SUMIFS(Raw!K:K,Raw!A:A,${weekStartQuoted}),SUMIFS(Raw!K:K,Raw!A:A,${weekStartQuoted},Raw!D:D,B2)))` : 
+        createComplexSumifsFormula('Raw!K:K', 'Raw!A:A', weekStartQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
         '0';
       
       // *** UPDATED: Previous year formulas using calendar-based dates ***
       const clicksPreviousFormula = previousWeek ? 
-        `=IF(B3="Yes",IF(B2="All",SUMIFS(Raw!G:G,Raw!A:A,${previousWeekQuoted},Raw!E:E,FALSE),SUMIFS(Raw!G:G,Raw!A:A,${previousWeekQuoted},Raw!D:D,B2,Raw!E:E,FALSE)),IF(B2="All",SUMIFS(Raw!G:G,Raw!A:A,${previousWeekQuoted}),SUMIFS(Raw!G:G,Raw!A:A,${previousWeekQuoted},Raw!D:D,B2)))` : 
+        createComplexSumifsFormula('Raw!G:G', 'Raw!A:A', previousWeekQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
         '0';
       const costPreviousFormula = previousWeek ? 
-        `=IF(B3="Yes",IF(B2="All",SUMIFS(Raw!H:H,Raw!A:A,${previousWeekQuoted},Raw!E:E,FALSE),SUMIFS(Raw!H:H,Raw!A:A,${previousWeekQuoted},Raw!D:D,B2,Raw!E:E,FALSE)),IF(B2="All",SUMIFS(Raw!H:H,Raw!A:A,${previousWeekQuoted}),SUMIFS(Raw!H:H,Raw!A:A,${previousWeekQuoted},Raw!D:D,B2)))` : 
+        createComplexSumifsFormula('Raw!H:H', 'Raw!A:A', previousWeekQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
         '0';
       const conversionsPreviousFormula = previousWeek ? 
-        `=IF(B3="Yes",IF(B2="All",SUMIFS(Raw!J:J,Raw!A:A,${previousWeekQuoted},Raw!E:E,FALSE),SUMIFS(Raw!J:J,Raw!A:A,${previousWeekQuoted},Raw!D:D,B2,Raw!E:E,FALSE)),IF(B2="All",SUMIFS(Raw!J:J,Raw!A:A,${previousWeekQuoted}),SUMIFS(Raw!J:J,Raw!A:A,${previousWeekQuoted},Raw!D:D,B2)))` : 
+        createComplexSumifsFormula('Raw!J:J', 'Raw!A:A', previousWeekQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
         '0';
       const conversionValuePreviousFormula = previousWeek ? 
-        `=IF(B3="Yes",IF(B2="All",SUMIFS(Raw!K:K,Raw!A:A,${previousWeekQuoted},Raw!E:E,FALSE),SUMIFS(Raw!K:K,Raw!A:A,${previousWeekQuoted},Raw!D:D,B2,Raw!E:E,FALSE)),IF(B2="All",SUMIFS(Raw!K:K,Raw!A:A,${previousWeekQuoted}),SUMIFS(Raw!K:K,Raw!A:A,${previousWeekQuoted},Raw!D:D,B2)))` : 
+        createComplexSumifsFormula('Raw!K:K', 'Raw!A:A', previousWeekQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
         '0';
       
       // Current year formulas for cost per conversion
       const costPerConvCurrentFormula = currentWeek ? 
-        `=IF(O${rowNum}>0,K${rowNum}/O${rowNum},0)` : 
+        createIfFormula(`O${rowNum}>0`, `K${rowNum}/O${rowNum}`, '0') : 
         '0';
       
       // Previous year formulas for cost per conversion
       const costPerConvPreviousFormula = previousWeek ? 
-        `=IF(Q${rowNum}>0,M${rowNum}/Q${rowNum},0)` : 
+        createIfFormula(`Q${rowNum}>0`, `M${rowNum}/Q${rowNum}`, '0') : 
         '0';
       
 
       
       // Calculate Average CPC, ROAS, and Index YoY dynamically
-      const avgCPCCurrentFormula = `=IF(C${rowNum}>0,K${rowNum}/C${rowNum},0)`;
-      const avgCPCPreviousFormula = `=IF(D${rowNum}>0,L${rowNum}/D${rowNum},0)`;
+      const avgCPCCurrentFormula = createIfFormula(`C${rowNum}>0`, `K${rowNum}/C${rowNum}`, '0');
+      const avgCPCPreviousFormula = createIfFormula(`D${rowNum}>0`, `L${rowNum}/D${rowNum}`, '0');
       
       // Conv. Value / Cost formulas (ROAS using click time conversions)
-      const convValueCostCurrentFormula = `=IF(K${rowNum}>0,W${rowNum}/K${rowNum},0)`;
-      const convValueCostPreviousFormula = `=IF(M${rowNum}>0,Y${rowNum}/M${rowNum},0)`;
+      const convValueCostCurrentFormula = createIfFormula(`K${rowNum}>0`, `W${rowNum}/K${rowNum}`, '0');
+      const convValueCostPreviousFormula = createIfFormula(`M${rowNum}>0`, `Y${rowNum}/M${rowNum}`, '0');
       
       // Week-over-week formulas for all metrics (Current week vs Previous week)
-      const clicksWoWFormula = `=IF(${rowNum}>11,IF(C${rowNum-1}>0,(C${rowNum}/C${rowNum-1})*100,0),0)`;
-      const cpcWoWFormula = `=IF(${rowNum}>11,IF(G${rowNum-1}>0,(G${rowNum}/G${rowNum-1})*100,0),0)`;
-      const costWoWFormula = `=IF(${rowNum}>11,IF(K${rowNum-1}>0,(K${rowNum}/K${rowNum-1})*100,0),0)`;
-      const conversionsWoWFormula = `=IF(${rowNum}>11,IF(O${rowNum-1}>0,(O${rowNum}/O${rowNum-1})*100,0),0)`;
-      const costPerConvWoWFormula = `=IF(${rowNum}>11,IF(S${rowNum-1}>0,(S${rowNum}/S${rowNum-1})*100,0),0)`;
-      const conversionValueWoWFormula = `=IF(${rowNum}>11,IF(W${rowNum-1}>0,(W${rowNum}/W${rowNum-1})*100,0),0)`;
-      const convValueCostWoWFormula = `=IF(${rowNum}>11,IF(AA${rowNum-1}>0,(AA${rowNum}/AA${rowNum-1})*100,0),0)`;
+      const clicksWoWFormula = createIfFormula(`${rowNum}>11`, createIfFormula(`C${rowNum-1}>0`, `(C${rowNum}/C${rowNum-1})*100`, '0'), '0');
+      const cpcWoWFormula = createIfFormula(`${rowNum}>11`, createIfFormula(`G${rowNum-1}>0`, `(G${rowNum}/G${rowNum-1})*100`, '0'), '0');
+      const costWoWFormula = createIfFormula(`${rowNum}>11`, createIfFormula(`K${rowNum-1}>0`, `(K${rowNum}/K${rowNum-1})*100`, '0'), '0');
+      const conversionsWoWFormula = createIfFormula(`${rowNum}>11`, createIfFormula(`O${rowNum-1}>0`, `(O${rowNum}/O${rowNum-1})*100`, '0'), '0');
+      const costPerConvWoWFormula = createIfFormula(`${rowNum}>11`, createIfFormula(`S${rowNum-1}>0`, `(S${rowNum}/S${rowNum-1})*100`, '0'), '0');
+      const conversionValueWoWFormula = createIfFormula(`${rowNum}>11`, createIfFormula(`W${rowNum-1}>0`, `(W${rowNum}/W${rowNum-1})*100`, '0'), '0');
+      const convValueCostWoWFormula = createIfFormula(`${rowNum}>11`, createIfFormula(`AA${rowNum-1}>0`, `(AA${rowNum}/AA${rowNum-1})*100`, '0'), '0');
       
       // Index YoY formulas (Current Year / Previous Year * 100)
-      const clicksIndexFormula = `=IF(E${rowNum}>0,(C${rowNum}/E${rowNum})*100,0)`;
-      const cpcIndexFormula = `=IF(I${rowNum}>0,(G${rowNum}/I${rowNum})*100,0)`;
-      const costIndexFormula = `=IF(M${rowNum}>0,(K${rowNum}/M${rowNum})*100,0)`;
-      const conversionsIndexFormula = `=IF(Q${rowNum}>0,(O${rowNum}/Q${rowNum})*100,0)`;
-      const costPerConvIndexFormula = `=IF(U${rowNum}>0,(S${rowNum}/U${rowNum})*100,0)`;
-      const conversionValueIndexFormula = `=IF(Y${rowNum}>0,(W${rowNum}/Y${rowNum})*100,0)`;
-      const convValueCostIndexFormula = `=IF(AC${rowNum}>0,(AA${rowNum}/AC${rowNum})*100,0)`;
+      const clicksIndexFormula = createIfFormula(`E${rowNum}>0`, `(C${rowNum}/E${rowNum})*100`, '0');
+      const cpcIndexFormula = createIfFormula(`I${rowNum}>0`, `(G${rowNum}/I${rowNum})*100`, '0');
+      const costIndexFormula = createIfFormula(`M${rowNum}>0`, `(K${rowNum}/M${rowNum})*100`, '0');
+      const conversionsIndexFormula = createIfFormula(`Q${rowNum}>0`, `(O${rowNum}/Q${rowNum})*100`, '0');
+      const costPerConvIndexFormula = createIfFormula(`U${rowNum}>0`, `(S${rowNum}/U${rowNum})*100`, '0');
+      const conversionValueIndexFormula = createIfFormula(`Y${rowNum}>0`, `(W${rowNum}/Y${rowNum})*100`, '0');
+      const convValueCostIndexFormula = createIfFormula(`AC${rowNum}>0`, `(AA${rowNum}/AC${rowNum})*100`, '0');
       
       // Always create full YoY comparison formula row (38 columns) with conditional formulas
       const formulaRow = [
@@ -2568,4 +3139,51 @@ function updateHeaders(summarySheet, showYoyComparison) {
     const headerRange = 'A7:K8';
     summarySheet.getRange(headerRange).setValues([mainHeaders, yearHeaders]);
   }
+}
+
+// Helper function to create complex nested IF formulas with locale awareness
+function createNestedIfFormula(condition1, trueValue1, falseValue1, condition2, trueValue2, falseValue2) {
+  const innerIf = createIfFormula(condition2, trueValue2, falseValue2);
+  return createIfFormula(condition1, trueValue1, innerIf);
+}
+
+// Helper function to create SUMIFS formulas with brand campaign filtering
+function createSumifsWithBrandFilter(sumRange, dateRange, dateValue, brandRange, brandValue, campaignTypeRange, campaignTypeValue) {
+  if (brandValue === 'FALSE') {
+    // Exclude brand campaigns
+    if (campaignTypeValue === 'All') {
+      return createSumifsFormula(sumRange, dateRange, dateValue, brandRange, brandValue);
+    } else {
+      return createSumifsFormula(sumRange, dateRange, dateValue, brandRange, brandValue, campaignTypeRange, campaignTypeValue);
+    }
+  } else {
+    // Include all campaigns
+    if (campaignTypeValue === 'All') {
+      return createSumifsFormula(sumRange, dateRange, dateValue);
+    } else {
+      return createSumifsFormula(sumRange, dateRange, dateValue, campaignTypeRange, campaignTypeValue);
+    }
+  }
+}
+
+// Helper function to create complex SUMIFS with brand and campaign type filtering
+function createComplexSumifsFormula(sumRange, dateRange, dateValue, excludeBrand, campaignTypeValue, brandRange, campaignTypeRange) {
+  // Create the nested IF formula: IF(B3="Yes", IF(B2="All", SUMIFS(...), SUMIFS(...)), IF(B2="All", SUMIFS(...), SUMIFS(...)))
+  
+  // Inner IF for when B3="Yes" (exclude brand campaigns)
+  const innerIfExcludeBrand = createIfFormula(
+    'B2="All"',
+    createSumifsFormula(sumRange, dateRange, dateValue, brandRange, 'FALSE'),
+    createSumifsFormula(sumRange, dateRange, dateValue, brandRange, 'FALSE', campaignTypeRange, 'B2')
+  );
+  
+  // Inner IF for when B3!="Yes" (include all campaigns)
+  const innerIfIncludeAll = createIfFormula(
+    'B2="All"',
+    createSumifsFormula(sumRange, dateRange, dateValue),
+    createSumifsFormula(sumRange, dateRange, dateValue, campaignTypeRange, 'B2')
+  );
+  
+  // Outer IF to choose between exclude brand and include all
+  return createIfFormula('B3="Yes"', innerIfExcludeBrand, innerIfIncludeAll);
 }

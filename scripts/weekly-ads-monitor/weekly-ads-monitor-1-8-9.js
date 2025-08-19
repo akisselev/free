@@ -19,7 +19,7 @@
  * - Toggle controls for YoY and WoW visibility
  * - Hide/show columns functionality
  * - Debug logging with toggle control
- * - Locale-aware formula generation (fixes #ERROR! in non-US locales)
+ * - Dual-tab approach: Comma notation (US) and Semicolon notation (European) for universal compatibility
  * 
  * Installation Steps:
  * 1. Go to https://ads.google.com and sign into your Google Ads account
@@ -34,7 +34,7 @@
  * 10. Create a schedule to run the script weekly early on Monday mornings
  * 
  * Author: Andrey Kisselev
- * Version: 1.8.9 - Added locale-aware formula generation to fix #ERROR! in non-US locales
+ * Version: 1.8.9 - Added dual-tab approach for universal formula compatibility
  * ====================================
  */
 
@@ -70,8 +70,8 @@ const DEBUG_LOGGING_ENABLED = true;
 // v1.8.5: Fixed Cost per Conversion 2024 data
 // v1.8.6: Removed ROAS and Conv. Value by conversion time metrics
 // v1.8.7: Enhanced user experience and performance optimizations
-// v1.8.8: Added debug logging with toggle control
-// v1.8.9: Added locale-aware formula generation to fix #ERROR! in non-US locales
+// v1.8.8: Added debug logging with toggle control and locale-aware formula generation
+// v1.8.9: Added dual-tab approach for universal formula compatibility
 
 // *** DEBUG LOGGING FUNCTIONS ***
 function debugLog(message, data = null) {
@@ -115,17 +115,9 @@ function debugEnd(functionName) {
 function getLocaleAwareFormula(formulaType, ...args) {
   debugLog('Generating locale-aware formula', { formulaType, args });
   
-  // Get the current spreadsheet locale with proper null checks
-  let locale = 'en_US'; // Default fallback
-  try {
-    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-    if (spreadsheet && typeof spreadsheet.getSpreadsheetLocale === 'function') {
-      locale = spreadsheet.getSpreadsheetLocale() || 'en_US';
-    }
-  } catch (error) {
-    debugError('Error getting spreadsheet locale', error);
-    locale = 'en_US'; // Fallback to US locale
-  }
+  // Get the current spreadsheet locale
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const locale = spreadsheet.getSpreadsheetLocale() || 'en_US';
   
   debugLog('Spreadsheet locale detected', { locale });
   
@@ -652,68 +644,64 @@ function getLocaleAwareFormula(formulaType, ...args) {
   debugLog('Locale-aware function name', { formulaType, locale, functionName });
   
   // Generate the formula based on type
-  try {
-    switch (formulaType) {
-      case 'IF':
-        return `=${functionName}(${args.join(',')})`;
-      case 'SUMIFS':
-        return `=${functionName}(${args.join(',')})`;
-      case 'OFFSET':
-        return `=${functionName}(${args.join(',')})`;
-      default:
-        // For unknown functions, use the original formula type
-        return `=${formulaType}(${args.join(',')})`;
-    }
-  } catch (error) {
-    debugError('Error generating locale-aware formula', error);
-    // Ultimate fallback to standard formula
-    return `=${formulaType}(${args.join(',')})`;
+  switch (formulaType) {
+    case 'IF':
+      return `=${functionName}(${args.join(',')})`;
+    case 'SUMIFS':
+      return `=${functionName}(${args.join(',')})`;
+    case 'OFFSET':
+      return `=${functionName}(${args.join(',')})`;
+    default:
+      // For unknown functions, use the original formula type
+      return `=${formulaType}(${args.join(',')})`;
   }
 }
 
-// Helper function to create IF formulas with locale awareness
+// Helper function to create IF formulas with comma notation (US)
+function createIfFormulaUS(condition, trueValue, falseValue) {
+  return `=IF(${condition},${trueValue},${falseValue})`;
+}
+
+// Helper function to create IF formulas with semicolon notation (European)
+function createIfFormulaEU(condition, trueValue, falseValue) {
+  return `=IF(${condition};${trueValue};${falseValue})`;
+}
+
+// Helper function to create IF formulas with locale awareness (legacy)
 function createIfFormula(condition, trueValue, falseValue) {
-  try {
-    return getLocaleAwareFormula('IF', condition, trueValue, falseValue);
-  } catch (error) {
-    debugError('Error creating IF formula', error);
-    // Fallback to standard IF formula
-    return `=IF(${condition},${trueValue},${falseValue})`;
-  }
+  return getLocaleAwareFormula('IF', condition, trueValue, falseValue);
 }
 
-// Helper function to create SUMIFS formulas with locale awareness
+// Helper function to create SUMIFS formulas with comma notation (US)
+function createSumifsFormulaUS(sumRange, criteriaRange1, criteria1, criteriaRange2, criteria2, criteriaRange3, criteria3) {
+  const args = [sumRange, criteriaRange1, criteria1];
+  if (criteriaRange2 && criteria2) args.push(criteriaRange2, criteria2);
+  if (criteriaRange3 && criteria3) args.push(criteriaRange3, criteria3);
+  return `=SUMIFS(${args.join(',')})`;
+}
+
+// Helper function to create SUMIFS formulas with semicolon notation (European)
+function createSumifsFormulaEU(sumRange, criteriaRange1, criteria1, criteriaRange2, criteria2, criteriaRange3, criteria3) {
+  const args = [sumRange, criteriaRange1, criteria1];
+  if (criteriaRange2 && criteria2) args.push(criteriaRange2, criteria2);
+  if (criteriaRange3 && criteria3) args.push(criteriaRange3, criteria3);
+  return `=SUMIFS(${args.join(';')})`;
+}
+
+// Helper function to create SUMIFS formulas with locale awareness (legacy)
 function createSumifsFormula(sumRange, criteriaRange1, criteria1, criteriaRange2, criteria2, criteriaRange3, criteria3) {
-  try {
-    const args = [sumRange, criteriaRange1, criteria1];
-    if (criteriaRange2 && criteria2) args.push(criteriaRange2, criteria2);
-    if (criteriaRange3 && criteria3) args.push(criteriaRange3, criteria3);
-    return getLocaleAwareFormula('SUMIFS', ...args);
-  } catch (error) {
-    debugError('Error creating SUMIFS formula', error);
-    // Fallback to standard SUMIFS formula
-    const args = [sumRange, criteriaRange1, criteria1];
-    if (criteriaRange2 && criteria2) args.push(criteriaRange2, criteria2);
-    if (criteriaRange3 && criteria3) args.push(criteriaRange3, criteria3);
-    return `=SUMIFS(${args.join(',')})`;
-  }
+  const args = [sumRange, criteriaRange1, criteria1];
+  if (criteriaRange2 && criteria2) args.push(criteriaRange2, criteria2);
+  if (criteriaRange3 && criteria3) args.push(criteriaRange3, criteria3);
+  return getLocaleAwareFormula('SUMIFS', ...args);
 }
 
 // Helper function to create OFFSET formulas with locale awareness
 function createOffsetFormula(reference, rows, cols, height, width) {
-  try {
-    const args = [reference, rows, cols];
-    if (height !== undefined) args.push(height);
-    if (width !== undefined) args.push(width);
-    return getLocaleAwareFormula('OFFSET', ...args);
-  } catch (error) {
-    debugError('Error creating OFFSET formula', error);
-    // Fallback to standard OFFSET formula
-    const args = [reference, rows, cols];
-    if (height !== undefined) args.push(height);
-    if (width !== undefined) args.push(width);
-    return `=OFFSET(${args.join(',')})`;
-  }
+  const args = [reference, rows, cols];
+  if (height !== undefined) args.push(height);
+  if (width !== undefined) args.push(width);
+  return getLocaleAwareFormula('OFFSET', ...args);
 }
 
 // *** TOGGLE SETTINGS ***
@@ -1149,10 +1137,13 @@ function generateWeeklyAdsReport() {
       rawSheet.autoResizeColumn(i);
     }
     
-    // Create aggregated weekly summary tab
-    Logger.log('📊 Creating Weekly Ads Monitor dashboard with calendar-based YoY comparison...');
-    debugLog('Creating weekly summary dashboard');
-    createWeeklySummary(spreadsheet, rawData);
+    // Create aggregated weekly summary tabs (dual-tab approach for universal compatibility)
+    Logger.log('📊 Creating Weekly Ads Monitor dashboard with dual-tab approach for universal compatibility...');
+    debugLog('Creating weekly summary dashboards with dual-tab approach');
+    
+    // Create both US and EU summary tabs
+    createWeeklySummaryUS(spreadsheet, rawData);
+    createWeeklySummaryEU(spreadsheet, rawData);
     
     Logger.log('🎉 SUCCESS! Weekly Ads Monitor v1.8.9 completed');
     Logger.log(`✅ Generated ${rawData.length} weekly campaign records with calendar-based YoY comparison and WoW for all metrics (with reordered WoW columns)`);
@@ -1396,23 +1387,22 @@ function findClosestPreviousYearWeek(currentYearWeekStart, availablePreviousWeek
   }
 }
 
-function createWeeklySummary(spreadsheet, rawData) {
-  debugStart('createWeeklySummary');
+function createWeeklySummaryUS(spreadsheet, rawData) {
+  debugStart('createWeeklySummaryUS');
   
   try {
-    debugLog('Creating weekly summary', { rawDataCount: rawData.length });
+    debugLog('Creating US weekly summary with comma notation', { rawDataCount: rawData.length });
     
-    // Get or create the "Weekly Summary" tab
-    let summarySheet = spreadsheet.getSheetByName('Weekly Summary');
+    // Create "Weekly Summary (US)" tab with comma notation
+    let summarySheet = spreadsheet.getSheetByName('Weekly Summary (US)');
     if (!summarySheet) {
-      summarySheet = spreadsheet.insertSheet('Weekly Summary');
-      debugLog('Created new Weekly Summary sheet');
+      summarySheet = spreadsheet.insertSheet('Weekly Summary (US)');
+      debugLog('Created new Weekly Summary (US) sheet');
     } else {
-      debugLog('Using existing Weekly Summary sheet');
+      debugLog('Using existing Weekly Summary (US) sheet');
     }
-    // Created or using existing "Weekly Summary" tab
     
-    debugLog('Clearing Weekly Summary sheet');
+    debugLog('Clearing Weekly Summary (US) sheet');
     summarySheet.clear();
     
     // Unfreeze any frozen rows/columns to avoid merge conflicts
@@ -1828,16 +1818,17 @@ function createWeeklySummary(spreadsheet, rawData) {
   Logger.log('✅ WoW toggle conditional formatting applied');
     
     // Create dynamic formulas that reference the filter and raw data
-    Logger.log('📤 Creating calendar-based year-over-year dynamic formulas...');
-    debugLog('Creating dynamic formulas');
+    Logger.log('📤 Creating calendar-based year-over-year dynamic formulas for both US and EU tabs...');
+    debugLog('Creating dynamic formulas for dual-tab approach');
     
-    // Build formula-based data rows that update automatically
-    const formulaData = [];
+    // Build formula-based data rows that update automatically for both tabs
+    const formulaDataUS = [];
+    const formulaDataEU = [];
     
     // Use the actual number of current year weeks we have data for
     const maxWeeks = weekPairs.length;
     
-    debugLog('Formula generation setup', { maxWeeks, weekPairsCount: weekPairs.length });
+    debugLog('Formula generation setup for dual tabs', { maxWeeks, weekPairsCount: weekPairs.length });
     
     for (let i = 0; i < maxWeeks; i++) {
       const weekNumber = i + 1;
@@ -1855,70 +1846,85 @@ function createWeeklySummary(spreadsheet, rawData) {
       // Formula generation completed
       
       // Current year formulas (only if current week exists) - now with brand campaign filter and YoY toggle
-      const clicksCurrentFormula = currentWeek ? 
-        `=IF(B3="Yes",IF(B2="All",SUMIFS(Raw!G:G,Raw!A:A,${weekStartQuoted},Raw!E:E,FALSE),SUMIFS(Raw!G:G,Raw!A:A,${weekStartQuoted},Raw!D:D,B2,Raw!E:E,FALSE)),IF(B2="All",SUMIFS(Raw!G:G,Raw!A:A,${weekStartQuoted}),SUMIFS(Raw!G:G,Raw!A:A,${weekStartQuoted},Raw!D:D,B2)))` : 
+      // US version (comma notation)
+      const clicksCurrentFormulaUS = currentWeek ? 
+        createComplexSumifsFormulaUS('Raw!G:G', 'Raw!A:A', weekStartQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
         '0';
-      const costCurrentFormula = currentWeek ? 
-        `=IF(B3="Yes",IF(B2="All",SUMIFS(Raw!H:H,Raw!A:A,${weekStartQuoted},Raw!E:E,FALSE),SUMIFS(Raw!H:H,Raw!A:A,${weekStartQuoted},Raw!D:D,B2,Raw!E:E,FALSE)),IF(B2="All",SUMIFS(Raw!H:H,Raw!A:A,${weekStartQuoted}),SUMIFS(Raw!H:H,Raw!A:A,${weekStartQuoted},Raw!D:D,B2)))` : 
+      const costCurrentFormulaUS = currentWeek ? 
+        createComplexSumifsFormulaUS('Raw!H:H', 'Raw!A:A', weekStartQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
         '0';
-      const conversionsCurrentFormula = currentWeek ? 
-        `=IF(B3="Yes",IF(B2="All",SUMIFS(Raw!J:J,Raw!A:A,${weekStartQuoted},Raw!E:E,FALSE),SUMIFS(Raw!J:J,Raw!A:A,${weekStartQuoted},Raw!D:D,B2,Raw!E:E,FALSE)),IF(B2="All",SUMIFS(Raw!J:J,Raw!A:A,${weekStartQuoted}),SUMIFS(Raw!J:J,Raw!A:A,${weekStartQuoted},Raw!D:D,B2)))` : 
+      const conversionsCurrentFormulaUS = currentWeek ? 
+        createComplexSumifsFormulaUS('Raw!J:J', 'Raw!A:A', weekStartQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
         '0';
-      const conversionValueCurrentFormula = currentWeek ? 
-        `=IF(B3="Yes",IF(B2="All",SUMIFS(Raw!K:K,Raw!A:A,${weekStartQuoted},Raw!E:E,FALSE),SUMIFS(Raw!K:K,Raw!A:A,${weekStartQuoted},Raw!D:D,B2,Raw!E:E,FALSE)),IF(B2="All",SUMIFS(Raw!K:K,Raw!A:A,${weekStartQuoted}),SUMIFS(Raw!K:K,Raw!A:A,${weekStartQuoted},Raw!D:D,B2)))` : 
+      const conversionValueCurrentFormulaUS = currentWeek ? 
+        createComplexSumifsFormulaUS('Raw!K:K', 'Raw!A:A', weekStartQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
+        '0';
+      
+      // EU version (semicolon notation)
+      const clicksCurrentFormulaEU = currentWeek ? 
+        createComplexSumifsFormulaEU('Raw!G:G', 'Raw!A:A', weekStartQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
+        '0';
+      const costCurrentFormulaEU = currentWeek ? 
+        createComplexSumifsFormulaEU('Raw!H:H', 'Raw!A:A', weekStartQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
+        '0';
+      const conversionsCurrentFormulaEU = currentWeek ? 
+        createComplexSumifsFormulaEU('Raw!J:J', 'Raw!A:A', weekStartQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
+        '0';
+      const conversionValueCurrentFormulaEU = currentWeek ? 
+        createComplexSumifsFormulaEU('Raw!K:K', 'Raw!A:A', weekStartQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
         '0';
       
       // *** UPDATED: Previous year formulas using calendar-based dates ***
       const clicksPreviousFormula = previousWeek ? 
-        `=IF(B3="Yes",IF(B2="All",SUMIFS(Raw!G:G,Raw!A:A,${previousWeekQuoted},Raw!E:E,FALSE),SUMIFS(Raw!G:G,Raw!A:A,${previousWeekQuoted},Raw!D:D,B2,Raw!E:E,FALSE)),IF(B2="All",SUMIFS(Raw!G:G,Raw!A:A,${previousWeekQuoted}),SUMIFS(Raw!G:G,Raw!A:A,${previousWeekQuoted},Raw!D:D,B2)))` : 
+        createComplexSumifsFormula('Raw!G:G', 'Raw!A:A', previousWeekQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
         '0';
       const costPreviousFormula = previousWeek ? 
-        `=IF(B3="Yes",IF(B2="All",SUMIFS(Raw!H:H,Raw!A:A,${previousWeekQuoted},Raw!E:E,FALSE),SUMIFS(Raw!H:H,Raw!A:A,${previousWeekQuoted},Raw!D:D,B2,Raw!E:E,FALSE)),IF(B2="All",SUMIFS(Raw!H:H,Raw!A:A,${previousWeekQuoted}),SUMIFS(Raw!H:H,Raw!A:A,${previousWeekQuoted},Raw!D:D,B2)))` : 
+        createComplexSumifsFormula('Raw!H:H', 'Raw!A:A', previousWeekQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
         '0';
       const conversionsPreviousFormula = previousWeek ? 
-        `=IF(B3="Yes",IF(B2="All",SUMIFS(Raw!J:J,Raw!A:A,${previousWeekQuoted},Raw!E:E,FALSE),SUMIFS(Raw!J:J,Raw!A:A,${previousWeekQuoted},Raw!D:D,B2,Raw!E:E,FALSE)),IF(B2="All",SUMIFS(Raw!J:J,Raw!A:A,${previousWeekQuoted}),SUMIFS(Raw!J:J,Raw!A:A,${previousWeekQuoted},Raw!D:D,B2)))` : 
+        createComplexSumifsFormula('Raw!J:J', 'Raw!A:A', previousWeekQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
         '0';
       const conversionValuePreviousFormula = previousWeek ? 
-        `=IF(B3="Yes",IF(B2="All",SUMIFS(Raw!K:K,Raw!A:A,${previousWeekQuoted},Raw!E:E,FALSE),SUMIFS(Raw!K:K,Raw!A:A,${previousWeekQuoted},Raw!D:D,B2,Raw!E:E,FALSE)),IF(B2="All",SUMIFS(Raw!K:K,Raw!A:A,${previousWeekQuoted}),SUMIFS(Raw!K:K,Raw!A:A,${previousWeekQuoted},Raw!D:D,B2)))` : 
+        createComplexSumifsFormula('Raw!K:K', 'Raw!A:A', previousWeekQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
         '0';
       
       // Current year formulas for cost per conversion
       const costPerConvCurrentFormula = currentWeek ? 
-        `=IF(O${rowNum}>0,K${rowNum}/O${rowNum},0)` : 
+        createIfFormula(`O${rowNum}>0`, `K${rowNum}/O${rowNum}`, '0') : 
         '0';
       
       // Previous year formulas for cost per conversion
       const costPerConvPreviousFormula = previousWeek ? 
-        `=IF(Q${rowNum}>0,M${rowNum}/Q${rowNum},0)` : 
+        createIfFormula(`Q${rowNum}>0`, `M${rowNum}/Q${rowNum}`, '0') : 
         '0';
       
 
       
       // Calculate Average CPC, ROAS, and Index YoY dynamically
-      const avgCPCCurrentFormula = `=IF(C${rowNum}>0,K${rowNum}/C${rowNum},0)`;
-      const avgCPCPreviousFormula = `=IF(D${rowNum}>0,L${rowNum}/D${rowNum},0)`;
+      const avgCPCCurrentFormula = createIfFormula(`C${rowNum}>0`, `K${rowNum}/C${rowNum}`, '0');
+      const avgCPCPreviousFormula = createIfFormula(`D${rowNum}>0`, `L${rowNum}/D${rowNum}`, '0');
       
       // Conv. Value / Cost formulas (ROAS using click time conversions)
-      const convValueCostCurrentFormula = `=IF(K${rowNum}>0,W${rowNum}/K${rowNum},0)`;
-      const convValueCostPreviousFormula = `=IF(M${rowNum}>0,Y${rowNum}/M${rowNum},0)`;
+      const convValueCostCurrentFormula = createIfFormula(`K${rowNum}>0`, `W${rowNum}/K${rowNum}`, '0');
+      const convValueCostPreviousFormula = createIfFormula(`M${rowNum}>0`, `Y${rowNum}/M${rowNum}`, '0');
       
       // Week-over-week formulas for all metrics (Current week vs Previous week)
-      const clicksWoWFormula = `=IF(${rowNum}>11,IF(C${rowNum-1}>0,(C${rowNum}/C${rowNum-1})*100,0),0)`;
-      const cpcWoWFormula = `=IF(${rowNum}>11,IF(G${rowNum-1}>0,(G${rowNum}/G${rowNum-1})*100,0),0)`;
-      const costWoWFormula = `=IF(${rowNum}>11,IF(K${rowNum-1}>0,(K${rowNum}/K${rowNum-1})*100,0),0)`;
-      const conversionsWoWFormula = `=IF(${rowNum}>11,IF(O${rowNum-1}>0,(O${rowNum}/O${rowNum-1})*100,0),0)`;
-      const costPerConvWoWFormula = `=IF(${rowNum}>11,IF(S${rowNum-1}>0,(S${rowNum}/S${rowNum-1})*100,0),0)`;
-      const conversionValueWoWFormula = `=IF(${rowNum}>11,IF(W${rowNum-1}>0,(W${rowNum}/W${rowNum-1})*100,0),0)`;
-      const convValueCostWoWFormula = `=IF(${rowNum}>11,IF(AA${rowNum-1}>0,(AA${rowNum}/AA${rowNum-1})*100,0),0)`;
+      const clicksWoWFormula = createIfFormula(`${rowNum}>11`, createIfFormula(`C${rowNum-1}>0`, `(C${rowNum}/C${rowNum-1})*100`, '0'), '0');
+      const cpcWoWFormula = createIfFormula(`${rowNum}>11`, createIfFormula(`G${rowNum-1}>0`, `(G${rowNum}/G${rowNum-1})*100`, '0'), '0');
+      const costWoWFormula = createIfFormula(`${rowNum}>11`, createIfFormula(`K${rowNum-1}>0`, `(K${rowNum}/K${rowNum-1})*100`, '0'), '0');
+      const conversionsWoWFormula = createIfFormula(`${rowNum}>11`, createIfFormula(`O${rowNum-1}>0`, `(O${rowNum}/O${rowNum-1})*100`, '0'), '0');
+      const costPerConvWoWFormula = createIfFormula(`${rowNum}>11`, createIfFormula(`S${rowNum-1}>0`, `(S${rowNum}/S${rowNum-1})*100`, '0'), '0');
+      const conversionValueWoWFormula = createIfFormula(`${rowNum}>11`, createIfFormula(`W${rowNum-1}>0`, `(W${rowNum}/W${rowNum-1})*100`, '0'), '0');
+      const convValueCostWoWFormula = createIfFormula(`${rowNum}>11`, createIfFormula(`AA${rowNum-1}>0`, `(AA${rowNum}/AA${rowNum-1})*100`, '0'), '0');
       
       // Index YoY formulas (Current Year / Previous Year * 100)
-      const clicksIndexFormula = `=IF(E${rowNum}>0,(C${rowNum}/E${rowNum})*100,0)`;
-      const cpcIndexFormula = `=IF(I${rowNum}>0,(G${rowNum}/I${rowNum})*100,0)`;
-      const costIndexFormula = `=IF(M${rowNum}>0,(K${rowNum}/M${rowNum})*100,0)`;
-      const conversionsIndexFormula = `=IF(Q${rowNum}>0,(O${rowNum}/Q${rowNum})*100,0)`;
-      const costPerConvIndexFormula = `=IF(U${rowNum}>0,(S${rowNum}/U${rowNum})*100,0)`;
-      const conversionValueIndexFormula = `=IF(Y${rowNum}>0,(W${rowNum}/Y${rowNum})*100,0)`;
-      const convValueCostIndexFormula = `=IF(AC${rowNum}>0,(AA${rowNum}/AC${rowNum})*100,0)`;
+      const clicksIndexFormula = createIfFormula(`E${rowNum}>0`, `(C${rowNum}/E${rowNum})*100`, '0');
+      const cpcIndexFormula = createIfFormula(`I${rowNum}>0`, `(G${rowNum}/I${rowNum})*100`, '0');
+      const costIndexFormula = createIfFormula(`M${rowNum}>0`, `(K${rowNum}/M${rowNum})*100`, '0');
+      const conversionsIndexFormula = createIfFormula(`Q${rowNum}>0`, `(O${rowNum}/Q${rowNum})*100`, '0');
+      const costPerConvIndexFormula = createIfFormula(`U${rowNum}>0`, `(S${rowNum}/U${rowNum})*100`, '0');
+      const conversionValueIndexFormula = createIfFormula(`Y${rowNum}>0`, `(W${rowNum}/Y${rowNum})*100`, '0');
+      const convValueCostIndexFormula = createIfFormula(`AC${rowNum}>0`, `(AA${rowNum}/AC${rowNum})*100`, '0');
       
       // Always create full YoY comparison formula row (38 columns) with conditional formulas
       const formulaRow = [
@@ -2423,14 +2429,14 @@ conversionsYoYRange.setHorizontalAlignment('center');
     summarySheet.setFrozenRows(10); // Freeze rows 1-10 (app title + filters + toggles + client name + headers)
     summarySheet.setFrozenColumns(2); // Freeze columns A-B (week info)
     
-    // Weekly Ads Monitor dashboard created successfully
-    debugLog('Weekly Ads Monitor dashboard created successfully');
-    debugEnd('createWeeklySummary');
+    // Weekly Ads Monitor US dashboard created successfully
+    debugLog('Weekly Ads Monitor US dashboard created successfully');
+    debugEnd('createWeeklySummaryUS');
     
   } catch (error) {
-    debugError('Error creating Weekly Ads Monitor dashboard', error);
-    Logger.log('❌ Error creating Weekly Ads Monitor dashboard: ' + error.toString());
-    debugEnd('createWeeklySummary');
+    debugError('Error creating Weekly Ads Monitor US dashboard', error);
+    Logger.log('❌ Error creating Weekly Ads Monitor US dashboard: ' + error.toString());
+    debugEnd('createWeeklySummaryUS');
   }
 }
 
@@ -3157,6 +3163,487 @@ function applyFormatting(summarySheet, showYoyComparison) {
   }
 }
 
+function createWeeklySummaryEU(spreadsheet, rawData) {
+  debugStart('createWeeklySummaryEU');
+  
+  try {
+    debugLog('Creating EU weekly summary with semicolon notation', { rawDataCount: rawData.length });
+    
+    // Create "Weekly Summary (EU)" tab with semicolon notation
+    let summarySheet = spreadsheet.getSheetByName('Weekly Summary (EU)');
+    if (!summarySheet) {
+      summarySheet = spreadsheet.insertSheet('Weekly Summary (EU)');
+      debugLog('Created new Weekly Summary (EU) sheet');
+    } else {
+      debugLog('Using existing Weekly Summary (EU) sheet');
+    }
+    
+    debugLog('Clearing Weekly Summary (EU) sheet');
+    summarySheet.clear();
+    
+    // Unfreeze any frozen rows/columns to avoid merge conflicts
+    summarySheet.setFrozenRows(0);
+    summarySheet.setFrozenColumns(0);
+    
+    // Get unique campaign types for the filter dropdown
+    const allCampaignTypes = [...new Set(rawData.map(row => row[3]))].sort(); // Campaign Types
+    const campaignTypeOptions = ['All', ...allCampaignTypes];
+    
+    debugLog('Campaign types found', { 
+      allCampaignTypes, 
+      campaignTypeOptions 
+    });
+    
+    // Data distribution analysis completed
+    
+    // Add app title in first row
+    summarySheet.getRange('A1').setValue('Weekly Ads Monitor v1.8.9 (EU - Semicolon Notation)');
+    summarySheet.getRange('A1').setFontWeight('bold');
+    summarySheet.getRange('A1').setFontSize(14);
+    summarySheet.getRange('A1').setBackground('#f0f0f0');
+    
+    // Merge cells A1 and B1 for the app title
+    summarySheet.getRange('A1:B1').merge();
+    
+    // Add campaign type filter controls
+    summarySheet.getRange('A2').setValue('Campaign Type Filter:');
+    summarySheet.getRange('A2').setFontWeight('bold');
+    summarySheet.getRange('A2').setBackground('#f0f0f0');
+    
+    // Set up dropdown for campaign type selection
+    const filterCell = summarySheet.getRange('B2');
+    
+    // Read the current filter selection BEFORE setting up dropdown
+    const currentSelection = filterCell.getValue();
+    
+    // Set up dropdown validation
+    const filterRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(campaignTypeOptions)
+      .setAllowInvalid(false)
+      .build();
+    filterCell.setDataValidation(filterRule);
+    filterCell.setBackground('#ffffff');
+    filterCell.setBorder(true, true, true, true, true, true);
+    
+    // Only set default if cell is empty or invalid
+    if (!currentSelection || !campaignTypeOptions.includes(currentSelection)) {
+      filterCell.setValue('All');
+    }
+    
+    // Add brand campaign filter controls
+    summarySheet.getRange('A3').setValue('Exclude Brand Campaigns?');
+    summarySheet.getRange('A3').setFontWeight('bold');
+    summarySheet.getRange('A3').setBackground('#f0f0f0');
+    
+    // Add YoY toggle filter controls
+    summarySheet.getRange('A4').setValue('Hide YoY Columns?');
+    summarySheet.getRange('A4').setFontWeight('bold');
+    summarySheet.getRange('A4').setBackground('#f0f0f0');
+    
+    // Add Exclude Brand Campaigns toggle controls (row 3)
+    summarySheet.getRange('A3').setValue('Exclude Brand Campaigns?');
+    summarySheet.getRange('A3').setFontWeight('bold');
+    summarySheet.getRange('A3').setBackground('#f0f0f0');
+    
+    // Add Hide YoY Columns toggle controls (row 4)
+    summarySheet.getRange('A4').setValue('Hide YoY Columns?');
+    summarySheet.getRange('A4').setFontWeight('bold');
+    summarySheet.getRange('A4').setBackground('#f0f0f0');
+    
+    // Add Hide WoW Columns toggle controls (row 5)
+    summarySheet.getRange('A5').setValue('Hide WoW Columns?');
+    summarySheet.getRange('A5').setFontWeight('bold');
+    summarySheet.getRange('A5').setBackground('#f0f0f0');
+    
+    // Add Start Week from Sunday toggle controls (row 6)
+    summarySheet.getRange('A6').setValue('Start Week from Sunday?');
+    summarySheet.getRange('A6').setFontWeight('bold');
+    summarySheet.getRange('A6').setBackground('#f0f0f0');
+    
+    // Add client name and currency info in row 7
+    const clientName = AdsApp.currentAccount().getName();
+    summarySheet.getRange('A7').setValue(`Acc.: ${clientName} (${LOCALE_SETTINGS.currencyCode}) - EU Version`);
+    summarySheet.getRange('A7').setFontWeight('bold');
+    summarySheet.getRange('A7').setFontSize(12);
+    summarySheet.getRange('A7').setBackground('#e8f0fe');
+    summarySheet.getRange('A7').setFontColor('#1a73e8');
+    
+    // Merge cells A7 and B7 for the account name
+    summarySheet.getRange('A7:B7').merge();
+    
+    // Set up dropdown for Exclude Brand Campaigns toggle (row 3)
+    const brandFilterCell = summarySheet.getRange('B3');
+    
+    // Read the current brand filter selection BEFORE setting up dropdown
+    const currentBrandSelection = brandFilterCell.getValue();
+    
+    // Set up dropdown validation for brand filter
+    const brandFilterRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['No', 'Yes'])
+      .setAllowInvalid(false)
+      .build();
+    brandFilterCell.setDataValidation(brandFilterRule);
+    brandFilterCell.setBackground('#ffffff');
+    brandFilterCell.setBorder(true, true, true, true, true, true);
+    
+    // Only set default if cell is empty or invalid
+    if (!currentBrandSelection || !['No', 'Yes'].includes(currentBrandSelection)) {
+      brandFilterCell.setValue('No');
+    }
+    
+    // Set up dropdown for Hide YoY toggle (row 4)
+    const yoyFilterCell = summarySheet.getRange('B4');
+    
+    // Read the current YoY filter selection BEFORE setting up dropdown
+    const currentYoySelection = yoyFilterCell.getValue();
+    
+    // Set up dropdown validation for YoY filter
+    const yoyFilterRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['No', 'Yes'])
+      .setAllowInvalid(false)
+      .build();
+    yoyFilterCell.setDataValidation(yoyFilterRule);
+    yoyFilterCell.setBackground('#ffffff');
+    yoyFilterCell.setBorder(true, true, true, true, true, true);
+    
+    // Only set default if cell is empty or invalid
+    if (!currentYoySelection || !['No', 'Yes'].includes(currentYoySelection)) {
+      yoyFilterCell.setValue('No');
+    }
+    
+    // Set up dropdown for Hide WoW toggle (row 5)
+    const hideWoWFilterCell = summarySheet.getRange('B5');
+    
+    // Read the current Hide WoW filter selection BEFORE setting up dropdown
+    const currentHideWoWSelection = hideWoWFilterCell.getValue();
+    
+    // Set up dropdown validation for Hide WoW filter
+    const hideWoWFilterRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['No', 'Yes'])
+      .setAllowInvalid(false)
+      .build();
+    hideWoWFilterCell.setDataValidation(hideWoWFilterRule);
+    hideWoWFilterCell.setBackground('#ffffff');
+    hideWoWFilterCell.setBorder(true, true, true, true, true, true);
+    
+    // Only set default if cell is empty or invalid
+    if (!currentHideWoWSelection || !['No', 'Yes'].includes(currentHideWoWSelection)) {
+      hideWoWFilterCell.setValue('No');
+    }
+    
+    // Set up dropdown for Start Week from Sunday toggle (row 6)
+    const startWeekSundayFilterCell = summarySheet.getRange('B6');
+    
+    // Read the current Start Week from Sunday filter selection BEFORE setting up dropdown
+    const currentStartWeekSundaySelection = startWeekSundayFilterCell.getValue();
+    
+    // Set up dropdown validation for Start Week from Sunday filter
+    const startWeekSundayFilterRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['No', 'Yes'])
+      .setAllowInvalid(false)
+      .build();
+    startWeekSundayFilterCell.setDataValidation(startWeekSundayFilterRule);
+    startWeekSundayFilterCell.setBackground('#ffffff');
+    startWeekSundayFilterCell.setBorder(true, true, true, true, true, true);
+    
+    // Only set default if cell is empty or invalid
+    if (!currentStartWeekSundaySelection || !['No', 'Yes'].includes(currentStartWeekSundaySelection)) {
+      startWeekSundayFilterCell.setValue('No');
+    }
+    
+    // Add instructions
+    summarySheet.getRange('D2').setValue('🔄 Dynamic Filters: Select options from dropdowns → Data updates automatically!');
+    summarySheet.getRange('D2').setFontStyle('italic');
+    summarySheet.getRange('D2').setFontSize(9);
+    summarySheet.getRange('D2').setFontColor('#0066cc');
+    
+    summarySheet.getRange('D3').setValue('🚫 Brand Filter: "Yes" excludes brand campaigns from analysis');
+    summarySheet.getRange('D3').setFontStyle('italic');
+    summarySheet.getRange('D3').setFontSize(9);
+    summarySheet.getRange('D3').setFontColor('#e74c3c');
+    
+    summarySheet.getRange('D4').setValue('👁️ YoY Toggle: "Yes" hides year-over-year comparison columns');
+    summarySheet.getRange('D4').setFontStyle('italic');
+    summarySheet.getRange('D4').setFontSize(9);
+    summarySheet.getRange('D4').setFontColor('#9c27b0');
+    
+    summarySheet.getRange('D5').setValue('📊 WoW Toggle: "Yes" hides week-over-week comparison columns');
+    summarySheet.getRange('D5').setFontStyle('italic');
+    summarySheet.getRange('D5').setFontSize(9);
+    summarySheet.getRange('D5').setFontColor('#ff6b35');
+    
+    summarySheet.getRange('D6').setValue('📅 Week Start: "Yes" starts weeks from Sunday instead of Monday');
+    summarySheet.getRange('D6').setFontStyle('italic');
+    summarySheet.getRange('D6').setFontSize(9);
+    summarySheet.getRange('D6').setFontColor('#4caf50');
+    
+    // Add "Coming Soon" label in C6
+    summarySheet.getRange('C6').setValue('Coming Soon');
+    summarySheet.getRange('C6').setFontColor('#666666');
+    summarySheet.getRange('C6').setFontSize(10);
+    summarySheet.getRange('C6').setFontStyle('italic');
+    
+    summarySheet.getRange('D7').setValue('📅 Calendar-based YoY: Aug 4-10, 2025 compares to Aug 4-10, 2024');
+    summarySheet.getRange('D7').setFontStyle('italic');
+    summarySheet.getRange('D7').setFontSize(9);
+    summarySheet.getRange('D7').setFontColor('#666666');
+    
+    // Read the final selected filter values
+    const selectedCampaignType = filterCell.getValue() || 'All';
+    const excludeBrandCampaigns = brandFilterCell.getValue() === 'Yes';
+    const hideWoWColumns = hideWoWFilterCell.getValue() === 'Yes';
+    const startWeekFromSunday = startWeekSundayFilterCell.getValue() === 'Yes';
+    
+    const hideYoyColumns = getHideYoyColumns(summarySheet);
+    
+    debugLog('Filter values', { 
+      selectedCampaignType, 
+      excludeBrandCampaigns, 
+      hideWoWColumns, 
+      startWeekFromSunday, 
+      hideYoyColumns 
+    });
+    
+    // Dynamic filtering enabled
+    
+    // Get current and previous year - always compare 2025 vs 2024
+    const currentYear = new Date().getFullYear(); // 2025
+    const previousYear = currentYear - 1; // 2024
+    
+    // *** NEW CALENDAR-BASED LOGIC ***
+    // Get all unique weeks from raw data for both years
+    const allWeekDates = [...new Set(rawData.map(row => row[0]))].sort();
+    const currentYearWeeks = allWeekDates.filter(week => week.includes(currentYear.toString()));
+    const previousYearWeeks = allWeekDates.filter(week => week.includes(previousYear.toString()));
+    
+    debugLog('Week analysis', { 
+      allWeekDates, 
+      currentYearWeeks, 
+      previousYearWeeks,
+      currentYear,
+      previousYear
+    });
+    
+    // Create a set of available previous year weeks for quick lookup
+    const availablePreviousWeeks = new Set(previousYearWeeks);
+    
+    // Calculate corresponding previous year dates for each current year week
+    // Only include pairs where both current and previous year data exists
+    const weekPairs = [];
+    
+    debugLog('Finding week pairs for calendar-based comparison');
+    
+    currentYearWeeks.forEach(currentWeek => {
+      const previousWeek = findClosestPreviousYearWeek(currentWeek, previousYearWeeks, rawData);
+      
+      if (previousWeek) {
+        weekPairs.push({
+          current: currentWeek,
+          previous: previousWeek
+        });
+        debugLog('Week pair found', { current: currentWeek, previous: previousWeek });
+      } else {
+        Logger.log(`⚠️ No suitable previous year match found for ${currentWeek}`);
+        debugLog('No previous year match found', { currentWeek });
+        // Still add the pair but with null previous week
+        weekPairs.push({
+          current: currentWeek,
+          previous: null
+        });
+      }
+    });
+    
+    debugLog('Week pairs completed', { weekPairsCount: weekPairs.length, weekPairs });
+    
+    // Calendar-based comparison completed
+    
+    // Create header structure with conditional formulas for YoY toggle
+    // Always create full headers structure - hide/show columns based on YoY toggle
+    const mainHeaders = [
+      'Week Number', 'Week Start', 
+      'Clicks', '', '', '', 
+      'Average CPC', '', '', '', 
+      'Cost', '', '', '', 
+      'Conversions', '', '', '', 
+      'Cost / Conv', '', '', '', 
+      'Conversion Value', '', '', '', 
+      'Conversion Value / Cost', '', '', ''
+    ];
+    const headerRange = summarySheet.getRange(9, 1, 1, mainHeaders.length);
+    headerRange.setValues([mainHeaders]);
+    
+    // Year subheaders (row 10) - Create conditional formulas that work with the current locale
+    const previousYearFormula = `=IF($B$4="Yes","",${previousYear})`;
+    const yoyFormula = `=IF($B$4="Yes","","YoY")`;
+    const wowFormula = `=IF($B$5="Yes","","WoW")`;
+    
+    const yearHeaders = [
+      '', '', 
+      currentYear, wowFormula, previousYearFormula, yoyFormula, 
+      currentYear, wowFormula, previousYearFormula, yoyFormula, 
+      currentYear, wowFormula, previousYearFormula, yoyFormula, 
+      currentYear, wowFormula, previousYearFormula, yoyFormula, 
+      currentYear, wowFormula, previousYearFormula, yoyFormula, 
+      currentYear, wowFormula, previousYearFormula, yoyFormula, 
+      currentYear, wowFormula, previousYearFormula, yoyFormula
+    ];
+    const yearHeaderRange = summarySheet.getRange(10, 1, 1, yearHeaders.length);
+    yearHeaderRange.setValues([yearHeaders]);
+    
+    // Create dynamic formulas that reference the filter and raw data
+    Logger.log('📤 Creating calendar-based year-over-year dynamic formulas for EU tab with semicolon notation...');
+    debugLog('Creating dynamic formulas for EU tab');
+    
+    // Build formula-based data rows that update automatically for EU tab
+    const formulaData = [];
+    
+    // Use the actual number of current year weeks we have data for
+    const maxWeeks = weekPairs.length;
+    
+    debugLog('Formula generation setup for EU tab', { maxWeeks, weekPairsCount: weekPairs.length });
+    
+    for (let i = 0; i < maxWeeks; i++) {
+      const weekNumber = i + 1;
+      const currentWeek = weekPairs[i]?.current || null;
+      const previousWeek = weekPairs[i]?.previous || null;
+      
+      // Calculate rowNum first - needed for all formulas
+      const rowNum = i + 11; // Starting at row 11 now (after app title + 4 filter rows + client name + 2 header rows)
+      
+      // Use current year week for display
+      const displayWeek = currentWeek || '';
+      const weekStartQuoted = currentWeek ? `"${currentWeek}"` : '""';
+      const previousWeekQuoted = previousWeek ? `"${previousWeek}"` : '""';
+      
+      // Formula generation completed
+      
+      // Current year formulas (only if current week exists) - now with brand campaign filter and YoY toggle
+      // EU version (semicolon notation)
+      const clicksCurrentFormula = currentWeek ? 
+        createComplexSumifsFormulaEU('Raw!G:G', 'Raw!A:A', weekStartQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
+        '0';
+      const costCurrentFormula = currentWeek ? 
+        createComplexSumifsFormulaEU('Raw!H:H', 'Raw!A:A', weekStartQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
+        '0';
+      const conversionsCurrentFormula = currentWeek ? 
+        createComplexSumifsFormulaEU('Raw!J:J', 'Raw!A:A', weekStartQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
+        '0';
+      const conversionValueCurrentFormula = currentWeek ? 
+        createComplexSumifsFormulaEU('Raw!K:K', 'Raw!A:A', weekStartQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
+        '0';
+      
+      // *** UPDATED: Previous year formulas using calendar-based dates ***
+      const clicksPreviousFormula = previousWeek ? 
+        createComplexSumifsFormulaEU('Raw!G:G', 'Raw!A:A', previousWeekQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
+        '0';
+      const costPreviousFormula = previousWeek ? 
+        createComplexSumifsFormulaEU('Raw!H:H', 'Raw!A:A', previousWeekQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
+        '0';
+      const conversionsPreviousFormula = previousWeek ? 
+        createComplexSumifsFormulaEU('Raw!J:J', 'Raw!A:A', previousWeekQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
+        '0';
+      const conversionValuePreviousFormula = previousWeek ? 
+        createComplexSumifsFormulaEU('Raw!K:K', 'Raw!A:A', previousWeekQuoted, true, 'All', 'Raw!E:E', 'Raw!D:D') : 
+        '0';
+      
+      // Current year formulas for cost per conversion
+      const costPerConvCurrentFormula = currentWeek ? 
+        createIfFormulaEU(`O${rowNum}>0`, `K${rowNum}/O${rowNum}`, '0') : 
+        '0';
+      
+      // Previous year formulas for cost per conversion
+      const costPerConvPreviousFormula = previousWeek ? 
+        createIfFormulaEU(`Q${rowNum}>0`, `M${rowNum}/Q${rowNum}`, '0') : 
+        '0';
+      
+      // Calculate Average CPC, ROAS, and Index YoY dynamically
+      const avgCPCCurrentFormula = createIfFormulaEU(`C${rowNum}>0`, `K${rowNum}/C${rowNum}`, '0');
+      const avgCPCPreviousFormula = createIfFormulaEU(`D${rowNum}>0`, `L${rowNum}/D${rowNum}`, '0');
+      
+      // Conv. Value / Cost formulas (ROAS using click time conversions)
+      const convValueCostCurrentFormula = createIfFormulaEU(`K${rowNum}>0`, `W${rowNum}/K${rowNum}`, '0');
+      const convValueCostPreviousFormula = createIfFormulaEU(`M${rowNum}>0`, `Y${rowNum}/M${rowNum}`, '0');
+      
+      // Week-over-week formulas for all metrics (Current week vs Previous week)
+      const clicksWoWFormula = createIfFormulaEU(`${rowNum}>11`, createIfFormulaEU(`C${rowNum-1}>0`, `(C${rowNum}/C${rowNum-1})*100`, '0'), '0');
+      const cpcWoWFormula = createIfFormulaEU(`${rowNum}>11`, createIfFormulaEU(`G${rowNum-1}>0`, `(G${rowNum}/G${rowNum-1})*100`, '0'), '0');
+      const costWoWFormula = createIfFormulaEU(`${rowNum}>11`, createIfFormulaEU(`K${rowNum-1}>0`, `(K${rowNum}/K${rowNum-1})*100`, '0'), '0');
+      const conversionsWoWFormula = createIfFormulaEU(`${rowNum}>11`, createIfFormulaEU(`O${rowNum-1}>0`, `(O${rowNum}/O${rowNum-1})*100`, '0'), '0');
+      const costPerConvWoWFormula = createIfFormulaEU(`${rowNum}>11`, createIfFormulaEU(`S${rowNum-1}>0`, `(S${rowNum}/S${rowNum-1})*100`, '0'), '0');
+      const conversionValueWoWFormula = createIfFormulaEU(`${rowNum}>11`, createIfFormulaEU(`W${rowNum-1}>0`, `(W${rowNum}/W${rowNum-1})*100`, '0'), '0');
+      const convValueCostWoWFormula = createIfFormulaEU(`${rowNum}>11`, createIfFormulaEU(`AA${rowNum-1}>0`, `(AA${rowNum}/AA${rowNum-1})*100`, '0'), '0');
+      
+      // Index YoY formulas (Current Year / Previous Year * 100)
+      const clicksIndexFormula = createIfFormulaEU(`E${rowNum}>0`, `(C${rowNum}/E${rowNum})*100`, '0');
+      const cpcIndexFormula = createIfFormulaEU(`I${rowNum}>0`, `(G${rowNum}/I${rowNum})*100`, '0');
+      const costIndexFormula = createIfFormulaEU(`M${rowNum}>0`, `(K${rowNum}/M${rowNum})*100`, '0');
+      const conversionsIndexFormula = createIfFormulaEU(`Q${rowNum}>0`, `(O${rowNum}/Q${rowNum})*100`, '0');
+      const costPerConvIndexFormula = createIfFormulaEU(`U${rowNum}>0`, `(S${rowNum}/U${rowNum})*100`, '0');
+      const conversionValueIndexFormula = createIfFormulaEU(`Y${rowNum}>0`, `(W${rowNum}/Y${rowNum})*100`, '0');
+      const convValueCostIndexFormula = createIfFormulaEU(`AC${rowNum}>0`, `(AA${rowNum}/AC${rowNum})*100`, '0');
+      
+      // Always create full YoY comparison formula row (38 columns) with conditional formulas
+      const formulaRow = [
+        weekNumber,                              // A: Week Number
+        displayWeek,                            // B: Week Start
+        clicksCurrentFormula,                   // C: Clicks Current Year (2025)
+        clicksWoWFormula,                       // D: Clicks Week-over-Week
+        clicksPreviousFormula,                  // E: Clicks Previous Year (2024)
+        clicksIndexFormula,                     // F: Clicks YoY
+        avgCPCCurrentFormula,                   // G: Avg CPC Current Year (2025)
+        cpcWoWFormula,                          // H: Avg CPC Week-over-Week
+        avgCPCPreviousFormula,                  // I: Avg CPC Previous Year (2024)
+        cpcIndexFormula,                        // J: Avg CPC YoY
+        costCurrentFormula,                     // K: Cost Current Year (2025)
+        costWoWFormula,                         // L: Cost Week-over-Week
+        costPreviousFormula,                    // M: Cost Previous Year (2024)
+        costIndexFormula,                       // N: Cost YoY
+        conversionsCurrentFormula,              // O: Conversions Current Year (2025)
+        conversionsWoWFormula,                  // P: Conversions Week-over-Week
+        conversionsPreviousFormula,             // Q: Conversions Previous Year (2024)
+        conversionsIndexFormula,                // R: Conversions YoY
+        costPerConvCurrentFormula,              // S: Cost / Conv Current Year (2025)
+        costPerConvWoWFormula,                  // T: Cost / Conv Week-over-Week
+        costPerConvPreviousFormula,             // U: Cost / Conv Previous Year (2024)
+        costPerConvIndexFormula,                // V: Cost / Conv YoY
+        conversionValueCurrentFormula,          // W: Conversion Value Current Year (2025)
+        conversionValueWoWFormula,              // X: Conversion Value Week-over-Week
+        conversionValuePreviousFormula,         // Y: Conversion Value Previous Year (2024)
+        conversionValueIndexFormula,            // Z: Conversion Value YoY
+        convValueCostCurrentFormula,            // AA: Conversion Value / Cost Current Year (2025)
+        convValueCostWoWFormula,                // AB: Conversion Value / Cost Week-over-Week
+        convValueCostPreviousFormula,           // AC: Conversion Value / Cost Previous Year (2024)
+        convValueCostIndexFormula               // AD: Conversion Value / Cost YoY
+      ];
+      
+      formulaData.push(formulaRow);
+    }
+    
+    // Write formula-based data to summary sheet (starting at row 11)
+    if (formulaData.length > 0) {
+      const columnCount = 30; // Always 30 columns with conditional formulas (7 metrics * 4 columns + 2 week columns)
+      debugLog('Writing formula data to EU sheet', { 
+        rowCount: formulaData.length, 
+        columnCount 
+      });
+      
+      const summaryRange = summarySheet.getRange(11, 1, formulaData.length, columnCount);
+      summaryRange.setValues(formulaData);
+      
+      debugLog('Formula data written successfully to EU sheet');
+    }
+    
+    // Weekly Ads Monitor EU dashboard created successfully
+    debugLog('Weekly Ads Monitor EU dashboard created successfully');
+    debugEnd('createWeeklySummaryEU');
+    
+  } catch (error) {
+    debugError('Error creating Weekly Ads Monitor EU dashboard', error);
+    Logger.log('❌ Error creating Weekly Ads Monitor EU dashboard: ' + error.toString());
+    debugEnd('createWeeklySummaryEU');
+  }
+}
+
 /**
  * Update headers based on toggle setting
  */
@@ -3204,7 +3691,51 @@ function createSumifsWithBrandFilter(sumRange, dateRange, dateValue, brandRange,
   }
 }
 
-// Helper function to create complex SUMIFS with brand and campaign type filtering
+// Helper function to create complex SUMIFS with brand and campaign type filtering (US - comma notation)
+function createComplexSumifsFormulaUS(sumRange, dateRange, dateValue, excludeBrand, campaignTypeValue, brandRange, campaignTypeRange) {
+  // Create the nested IF formula: IF(B3="Yes", IF(B2="All", SUMIFS(...), SUMIFS(...)), IF(B2="All", SUMIFS(...), SUMIFS(...)))
+  
+  // Inner IF for when B3="Yes" (exclude brand campaigns)
+  const innerIfExcludeBrand = createIfFormulaUS(
+    'B2="All"',
+    createSumifsFormulaUS(sumRange, dateRange, dateValue, brandRange, 'FALSE'),
+    createSumifsFormulaUS(sumRange, dateRange, dateValue, brandRange, 'FALSE', campaignTypeRange, 'B2')
+  );
+  
+  // Inner IF for when B3!="Yes" (include all campaigns)
+  const innerIfIncludeAll = createIfFormulaUS(
+    'B2="All"',
+    createSumifsFormulaUS(sumRange, dateRange, dateValue),
+    createSumifsFormulaUS(sumRange, dateRange, dateValue, campaignTypeRange, 'B2')
+  );
+  
+  // Outer IF to choose between exclude brand and include all
+  return createIfFormulaUS('B3="Yes"', innerIfExcludeBrand, innerIfIncludeAll);
+}
+
+// Helper function to create complex SUMIFS with brand and campaign type filtering (EU - semicolon notation)
+function createComplexSumifsFormulaEU(sumRange, dateRange, dateValue, excludeBrand, campaignTypeValue, brandRange, campaignTypeRange) {
+  // Create the nested IF formula: IF(B3="Yes"; IF(B2="All"; SUMIFS(...); SUMIFS(...)); IF(B2="All"; SUMIFS(...); SUMIFS(...)))
+  
+  // Inner IF for when B3="Yes" (exclude brand campaigns)
+  const innerIfExcludeBrand = createIfFormulaEU(
+    'B2="All"',
+    createSumifsFormulaEU(sumRange, dateRange, dateValue, brandRange, 'FALSE'),
+    createSumifsFormulaEU(sumRange, dateRange, dateValue, brandRange, 'FALSE', campaignTypeRange, 'B2')
+  );
+  
+  // Inner IF for when B3!="Yes" (include all campaigns)
+  const innerIfIncludeAll = createIfFormulaEU(
+    'B2="All"',
+    createSumifsFormulaEU(sumRange, dateRange, dateValue),
+    createSumifsFormulaEU(sumRange, dateRange, dateValue, campaignTypeRange, 'B2')
+  );
+  
+  // Outer IF to choose between exclude brand and include all
+  return createIfFormulaEU('B3="Yes"', innerIfExcludeBrand, innerIfIncludeAll);
+}
+
+// Helper function to create complex SUMIFS with brand and campaign type filtering (legacy)
 function createComplexSumifsFormula(sumRange, dateRange, dateValue, excludeBrand, campaignTypeValue, brandRange, campaignTypeRange) {
   // Create the nested IF formula: IF(B3="Yes", IF(B2="All", SUMIFS(...), SUMIFS(...)), IF(B2="All", SUMIFS(...), SUMIFS(...)))
   

@@ -1,5 +1,5 @@
-const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1_SIXKHGlogv08g275AmwHt-rWoD15Jnc6OeoijbEVTU/edit?gid=515738840#gid=515738840'; //add YOUR_GOOGLE_SHEET_URL_HERE
-const BRAND_CAMPAIGNS = ['S | Brand,Sh | Brand']; // Add your brand campaign names here
+const SHEET_URL = ''; //add YOUR_GOOGLE_SHEET_URL_HERE
+const BRAND_CAMPAIGNS = []; // Add your brand campaign names here
 // Example: 'Your Company Brand', 'Brand Search Campaign', 'Trademark Campaign'
 // Leave empty [] if you don't have brand campaigns to exclude
 const DEBUG_LOGGING_ENABLED = false;
